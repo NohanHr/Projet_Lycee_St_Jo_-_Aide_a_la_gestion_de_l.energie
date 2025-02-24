@@ -1,1 +1,1 @@
-# Projet_Lycee_St_Jo_-_Aide_a_la_gestion_de_l.energie
+# Projet Lycée St Jo - Aide à la gestion de l'énergie
