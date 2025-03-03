@@ -1,0 +1,84 @@
+#include <Wire.h>
+#include <Adafruit_MLX90614.h>
+
+Adafruit_MLX90614 mlx = Adafruit_MLX90614();
+();
+
+void setup() {
+Serial.begin(9600);
+Serial.println("Capteur MLX90614 - MicroLab");
+MLX_Sensor.begin();
+}
+
+void loop() {
+Display_Temperature('A'); // Obtenir la température de l'objet en Celsius
+Display_Temperature('B'); // Obtenir la température ambiante en Celsius
+Display_Temperature('C'); // Obtenir la température de l'objet en Kelvin
+Display_Temperature('D'); // Obtenir la température ambiante en Kelvin
+Display_Temperature('E'); // Obtenir la température de l'objet en Fahrenheit
+Display_Temperature('F'); // Obtenir la température ambiante en Fahrenheit
+Serial.println("########");
+delay(2000);
+}
+
+float Get_Temperature_Sample(char type) {
+float temp_value;
+float Object_Temperature = MLX_Sensor.readObjectTempC();
+float Ambient_Temperature = MLX_Sensor.readAmbientTempC();
+
+if (type == 'E') {
+temp_value = MLX_Sensor.readObjectTempF(); // Température de l'objet en Fahrenheit
+}
+else if (type == 'F') {
+temp_value = MLX_Sensor.readAmbientTempF(); // Température ambiante en Fahrenheit
+}
+else if (type == 'C') {
+temp_value = Object_Temperature + 273.15; // Température de l'objet en Kelvin
+}
+else if (type == 'D') {
+temp_value = Ambient_Temperature + 273.15; // Température ambiante en Kelvin
+}
+else if (type == 'A') {
+temp_value = Object_Temperature;
+}
+else if (type == 'B') {
+temp_value = Ambient_Temperature;
+}
+
+return temp_value;
+}
+
+void Display_Temperature(char type) {
+float temp_data = Get_Temperature_Sample(type);
+
+if (type == 'A') {
+Serial.print("Objet : ");
+Serial.print(temp_data);
+Serial.println("°C");
+}
+else if (type == 'B') {
+Serial.print("Ambiant : ");
+Serial.print(temp_data);
+Serial.println("°C");
+}
+else if (type == 'C') {
+Serial.print("Objet : ");
+Serial.print(temp_data);
+Serial.println("°K");
+}
+else if (type == 'D') {
+Serial.print("Ambiant : ");
+Serial.print(temp_data);
+Serial.println("°K");
+}
+else if (type == 'E') {
+Serial.print("Objet : ");
+Serial.print(temp_data);
+Serial.println("°F");
+}
+else if (type == 'F') {
+Serial.print("Ambiant : ");
+Serial.print(temp_data);
+Serial.println("°F");
+}
+}
