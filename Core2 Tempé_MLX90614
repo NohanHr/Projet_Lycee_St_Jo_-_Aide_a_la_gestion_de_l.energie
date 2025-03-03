@@ -2,12 +2,11 @@
 #include <Adafruit_MLX90614.h>
 
 Adafruit_MLX90614 mlx = Adafruit_MLX90614();
-();
 
 void setup() {
 Serial.begin(9600);
 Serial.println("Capteur MLX90614 - MicroLab");
-MLX_Sensor.begin();
+mlx.begin();
 }
 
 void loop() {
@@ -23,14 +22,14 @@ delay(2000);
 
 float Get_Temperature_Sample(char type) {
 float temp_value;
-float Object_Temperature = MLX_Sensor.readObjectTempC();
-float Ambient_Temperature = MLX_Sensor.readAmbientTempC();
+float Object_Temperature = mlx.readObjectTempC();
+float Ambient_Temperature = mlx.readAmbientTempC();
 
 if (type == 'E') {
-temp_value = MLX_Sensor.readObjectTempF(); // Température de l'objet en Fahrenheit
+temp_value = mlx.readObjectTempF(); // Température de l'objet en Fahrenheit
 }
 else if (type == 'F') {
-temp_value = MLX_Sensor.readAmbientTempF(); // Température ambiante en Fahrenheit
+temp_value = mlx.readAmbientTempF(); // Température ambiante en Fahrenheit
 }
 else if (type == 'C') {
 temp_value = Object_Temperature + 273.15; // Température de l'objet en Kelvin
