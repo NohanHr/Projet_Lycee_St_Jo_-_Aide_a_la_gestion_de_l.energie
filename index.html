@@ -1,0 +1,140 @@
+
+
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+   <meta charset="UTF-8">
+   <title>Localisation des mesures de température</title>
+   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css"/>
+   <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+   <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+</head>
+<body>
+   <form name="formulaire" action="getmeteo.php" method="POST">
+       <fieldset>
+           <legend> Formulaire de saisie </legend>
+           <hr>
+           <p>
+               <label for="salle">Nom de la salle : </label>
+               <input id="salle" type="text" size="20" name="salle" title="au moins 2 caractères alphabétiques" minlength="2" required/>
+           </p>
+           <p>
+               <label for="id_capteur">Id du capteur (1-100):</label>
+               <input type="number" id="id_capteur" name="id_capteur" min="1" max="100" required/>
+           </p>
+           <p>
+               <label for="localisation">Localisation --> </label> <br>
+               <label for="latitude">Latitude :</label>
+               <input type="number" name="latitude" id="latitude" min="-90" max="90" step="0.0000001" required/>
+               <label for="longitude">Longitude :</label>
+               <input type="number" name="longitude" id="longitude" min="-180" max="180" step="0.0000001" required/>
+               <br><br>
+               <button type="button" onclick="obtenirLocalisation()">Localisation auto</button>
+               <br> <span id="info"></span>
+           </p>
+           <p>
+               <label for="temperature">Valeur de la temperature :</label>
+               <input type="number" name="temperature" id="temperature" min="0" max="90" step="0.01" required/>
+           </p>
+           <p>
+               <input type="submit" value="Envoyer les données"/>
+           </p>
+       </fieldset>
+   </form>
+
+
+   <h1> Localisation des mesures </h1>
+   <div id="mapid" style="width: 600px; height: 400px;"></div>
+
+
+   <script type="text/javascript">
+       const carte = L.map('mapid').setView([51.505, -0.09], 2);
+       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+           attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+       }).addTo(carte);
+
+
+       let marqueurs = []; // Tableau pour stocker les marqueurs
+       const cleApi = '6988f2000aa4f8bb860abfe5e68c58ca'; // Remplacez par votre clé d'API OpenWeather
+
+
+       // Fonction pour ajouter un marqueur à la carte
+       function ajouterMarqueur(lat, lon) {
+           $.getJSON(`https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${cleApi}&units=metric`)
+               .done(function(data) {
+                   const temperature = data.main.temp;
+                   const ville = data.name; // Nom de la ville
+                   const infoMeteo = `Météo: ${data.weather[0].description}<br>Température: ${temperature} °C`;
+
+
+                   const marqueur = L.marker([lat, lon]).addTo(carte)
+                       .bindPopup("Localisation : " + lat.toFixed(6) + ", " + lon.toFixed(6) + "<br>Ville: " + ville + "<br>" + infoMeteo)
+                       .openPopup();
+                   marqueurs.push(marqueur);
+
+
+                   // Mettre à jour le champ de mesure avec la température
+                   document.getElementById('mesure').value = temperature;
+
+
+                   // Centrer la carte sur le marqueur et zoomer
+                   carte.setView([lat, lon], 13); // Zoom de 13, ajustez si nécessaire
+               })
+               .fail(function(jqXHR, textStatus, errorThrown) {
+                   console.error("Erreur lors de la récupération des données météo : " + textStatus + " - " + errorThrown);
+                   alert("Erreur lors de la récupération des données météo.");
+               });
+       }
+
+
+       // Fonction pour charger les points de la base de données
+       function chargerPoints() {
+           $.getJSON('getPoints.php', function(points) {
+               points.forEach(point => {
+                   ajouterMarqueur(point.latitude, point.longitude);
+               });
+           });
+       }
+
+
+       // Charger les points au démarrage
+       chargerPoints();
+
+
+       // Écouteur d'événement pour le clic sur la carte
+       carte.on('click', function(e) {
+           const lat = e.latlng.lat;
+           const lon = e.latlng.lng;
+
+
+           document.getElementById('latitude').value = lat.toFixed(6);
+           document.getElementById('longitude').value = lon.toFixed(6);
+           ajouterMarqueur(lat, lon);
+       });
+
+
+       // Fonction pour récupérer la géolocalisation
+       function obtenirLocalisation() {
+           document.getElementById('info').textContent = 'Chargement de la localisation...';
+
+
+           if (navigator.geolocation) {
+               navigator.geolocation.getCurrentPosition(function(position) {
+                   const lat = position.coords.latitude;
+                   const lon = position.coords.longitude;
+                   document.getElementById('latitude').value = lat;
+                   document.getElementById('longitude').value = lon;
+                   carte.setView([lat, lon], 13);
+                   ajouterMarqueur(lat, lon);
+                   document.getElementById('info').textContent = '';
+               }, function(error) {
+                   document.getElementById('info').textContent = 'Erreur lors de la récupération de la localisation.';
+                   console.error("Erreur lors de la récupération de la localisation:", error);
+               });
+           } else {
+               alert("La géolocalisation n'est pas supportée par ce navigateur.");
+           }
+       }
+   </script>
+</body>
+</html>
