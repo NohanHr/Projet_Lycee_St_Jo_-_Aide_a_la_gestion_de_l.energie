@@ -1,5 +1,6 @@
 <?php
 session_start();
+
 if (isset($_SESSION["user"])) {
     header("Location: index.html");
     exit();
@@ -8,31 +9,50 @@ if (isset($_SESSION["user"])) {
 $error = "";
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     try {
-        $pdo = new PDO("mysql:host=localhost;dbname=ton_database;charset=utf8", "root", "password", [
+        $pdo = new PDO("mysql:host=localhost;dbname=energie;charset=utf8", "admin", "ciel2", [
             PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
             PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC
         ]);
 
         $username = htmlspecialchars(trim($_POST["username"])); // Protection XSS
-        $password = $_POST["password"];
+        $password = htmlspecialchars(trim($_POST["password"])); // Protection XSS
 
+        // Récupérer l'utilisateur depuis la base de données
         $stmt = $pdo->prepare("SELECT * FROM users WHERE username = ?");
         $stmt->execute([$username]);
         $user = $stmt->fetch();
 
-        if ($user && password_verify($password, $user["password"])) {
-            $_SESSION["user"] = $user["username"]; // Stocker l'username de manière sécurisée
-            header("Location: index.php");
-            exit();
+        if ($user) {
+            // Vérifier si le mot de passe est haché
+            if (password_verify($password, $user['password'])) {
+                // Mot de passe haché : connexion réussie
+                $_SESSION["user"] = $username;
+                header("Location: index.html");
+                exit();
+            } elseif ($password === $user['password']) {
+                // Mot de passe en clair : connexion réussie
+                $_SESSION["user"] = $username;
+
+                // Optionnel : hacher le mot de passe et mettre à jour la base de données
+                $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
+                $updateStmt = $pdo->prepare("UPDATE users SET password = ? WHERE username = ?");
+                $updateStmt->execute([$hashedPassword, $username]);
+
+                header("Location: index.html");
+                exit();
+            } else {
+                // Mot de passe incorrect
+                $error = "Nom d'utilisateur ou mot de passe incorrect.";
+            }
         } else {
+            // Utilisateur non trouvé
             $error = "Nom d'utilisateur ou mot de passe incorrect.";
         }
     } catch (PDOException $e) {
-        $error = "Erreur de connexion à la base de données.";
+        $error = "Erreur de connexion : " . $e->getMessage();
     }
 }
 ?>
-
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -40,49 +60,97 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Connexion</title>
     <style>
+        /* Style général */
         body {
-            font-family: Arial, sans-serif;
+            font-family: 'Arial', sans-serif;
             display: flex;
             justify-content: center;
             align-items: center;
             height: 100vh;
-            background-color: #f4f4f4;
             margin: 0;
+            background-image: url('https://www.linfodurable.fr/sites/linfodurable/files/2017-11/shutterstock_662332231.jpg'); /* Remplacez par votre image */
+            background-size: cover; /* Couvre toute la page */
+            background-position: center; /* Centre l'image */
+            background-repeat: no-repeat; /* Empêche la répétition */
+            color: #333;
         }
+
+        /* Conteneur du formulaire */
         .container {
-            background: white;
-            padding: 20px;
-            border-radius: 10px;
-            box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
+            background: rgba(255, 255, 255, 0.9); /* Arrière-plan semi-transparent */
+            padding: 40px;
+            border-radius: 15px;
+            box-shadow: 0px 10px 30px rgba(0, 0, 0, 0.1);
             text-align: center;
-            width: 300px;
+            width: 350px;
+            animation: fadeIn 1s ease-in-out;
         }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
         h2 {
             margin-bottom: 20px;
+            font-size: 24px;
+            color: #333;
         }
+
+        /* Style des champs de formulaire */
         input {
             width: 100%;
-            padding: 10px;
+            padding: 12px;
             margin: 10px 0;
-            border: 1px solid #ccc;
-            border-radius: 5px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s ease;
         }
+
+        input:focus {
+            border-color: #6a11cb;
+            outline: none;
+        }
+
+        /* Style du bouton */
         button {
-            background: #007bff;
+            background: linear-gradient(135deg, #6a11cb, #2575fc);
             color: white;
-            padding: 10px;
+            padding: 12px;
             border: none;
             width: 100%;
-            border-radius: 5px;
+            border-radius: 8px;
             cursor: pointer;
+            font-size: 16px;
+            transition: background 0.3s ease;
         }
+
         button:hover {
-            background: #0056b3;
+            background: linear-gradient(135deg, #2575fc, #6a11cb);
         }
+
+        /* Message d'erreur */
         .error {
-            color: red;
+            color: #ff4757;
             font-size: 0.9em;
             margin-top: 10px;
+        }
+
+        /* Lien pour s'inscrire */
+        .register-link {
+            margin-top: 15px;
+            font-size: 14px;
+        }
+
+        .register-link a {
+            color: #6a11cb;
+            text-decoration: none;
+            font-weight: bold;
+        }
+
+        .register-link a:hover {
+            text-decoration: underline;
         }
     </style>
 </head>
@@ -90,7 +158,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
 <div class="container">
     <h2>Connexion</h2>
-    <form method="POST">
+    <form method="POST" action="login.php">
         <input type="text" name="username" placeholder="Nom d'utilisateur" required>
         <input type="password" name="password" placeholder="Mot de passe" required>
         <button type="submit">Se connecter</button>
