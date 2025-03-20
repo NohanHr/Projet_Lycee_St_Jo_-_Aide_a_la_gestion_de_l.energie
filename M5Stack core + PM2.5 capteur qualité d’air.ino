@@ -1,91 +1,135 @@
-#include <Wire.h> // Inclut la bibliothèque Wire pour la communication I2C
-#include <Adafruit_Sensor.h> // Inclut la bibliothèque Adafruit Sensor pour les capteurs
-#include <Adafruit_SHT31.h> // Inclut la bibliothèque Adafruit pour le capteur SHT31
-#include <M5Stack.h> // Inclut la bibliothèque M5Stack pour utiliser les fonctionnalités de la carte M5Stack
-#include <PMS.h> // Inclut la bibliothèque PMS pour le capteur de particules PMSA003
+#include <WiFi.h>
+#include <M5Stack.h>
+#include <Wire.h>
+#include <Adafruit_Sensor.h>
+#include <Adafruit_SHT31.h>
+#include <PMS.h>
+#include <HTTPClient.h>
 
-// Initialisation des capteurs
-Adafruit_SHT31 sht31 = Adafruit_SHT31(); // Crée une instance du capteur SHT31
-PMS pms(Serial2); // Crée une instance du capteur PMSA003 en utilisant le port série 2
-PMS::DATA data; // Crée une structure pour stocker les données du capteur PMSA003
+Adafruit_SHT31 sht31 = Adafruit_SHT31();
+PMS pms(Serial2);
+PMS::DATA data;
+
+// Configuration réseau
+const char* ssid = "Energie";
+const char* password = "gestionenergie";
+const char* serverUrl = "http://10.0.200.5/insert.php";
+const String id_capteur = "M5Stack-01";
+const String nom_capteur = "Capteur_Salle_1";
 
 void header(const char *string, uint16_t color) {
-    M5.Lcd.fillScreen(color); // Remplit l'écran avec la couleur spécifiée
-    M5.Lcd.setTextSize(1); // Définit la taille du texte à 1
-    M5.Lcd.setTextColor(TFT_WHITE, TFT_BLACK); // Définit la couleur du texte en blanc et le fond en noir
-    M5.Lcd.fillRect(0, 0, 320, 30, TFT_BLACK); // Remplit un rectangle en haut de l'écran avec du noir
-    M5.Lcd.setTextDatum(TC_DATUM); // Définit l'alignement du texte au centre
-    M5.Lcd.drawString(string, 160, 3, 4); // Affiche la chaîne de caractères au centre de l'écran
+    M5.Lcd.fillScreen(color);
+    M5.Lcd.setTextSize(1);
+    M5.Lcd.setTextColor(TFT_WHITE, TFT_BLACK);
+    M5.Lcd.fillRect(0, 0, 320, 30, TFT_BLACK);
+    M5.Lcd.setTextDatum(TC_DATUM);
+    M5.Lcd.drawString(string, 160, 3, 4);
 }
 
 void setup() {
-  M5.begin(); // Initialise la carte M5Stack
-  Serial.begin(115200); // Initialise la communication série à 115200 bauds
-  Serial2.begin(9600); // Initialise la communication série 2 à 9600 bauds pour le capteur PMSA003
+    M5.begin();
+    M5.Lcd.println("Connexion au Wi-Fi...");
+    WiFi.begin(ssid, password);
 
-  // Initialisation du capteur SHT31
-  if (!sht31.begin(0x44)) { // Tente de démarrer le capteur SHT31 à l'adresse I2C 0x44
-    Serial.println("Impossible de trouver le capteur SHT31"); // Affiche un message d'erreur si le capteur n'est pas trouvé
-    while (1) delay(1); // Boucle infinie pour arrêter le programme
-  }
+    while (WiFi.status() != WL_CONNECTED) {
+        delay(1000);
+        M5.Lcd.print(".");
+    }
+    M5.Lcd.println("\nConnecté au Wi-Fi");
 
-  // Initialisation de l'écran
-  M5.Lcd.setTextSize(2); // Définit la taille du texte à 2
-  M5.Lcd.setCursor(0, 0); // Positionne le curseur en haut à gauche de l'écran
-  M5.Lcd.println("PM2.5 Air Quality Kit"); // Affiche le titre sur l'écran
+    Serial.begin(115200);
+    Serial2.begin(9600);
 
-  M5.Lcd.fillScreen(TFT_BLACK); // Remplit l'écran avec du noir
-  header("M5Stack PM2.5", TFT_BLACK); // Affiche l'en-tête avec le titre "M5Stack PM2.5"
+    if (!sht31.begin(0x44)) {
+        M5.Lcd.println("Erreur SHT31!");
+        while(1);
+    }
+
+    header("M5Stack PM2.5", TFT_BLACK);
+}
+
+void envoyerDonnees(float temp, float hum, float pm1, float pm25, float pm10) {
+    if(WiFi.status() != WL_CONNECTED) return;
+
+    HTTPClient http;
+    
+    // Encodage URL des paramètres
+    String requete = String(serverUrl) + 
+        "?temperature=" + String(temp) +
+        "&humidite=" + String(hum) +
+        "&particule_1_0=" + String(pm1) +  // Remplacement du point par _
+        "&particule_2_5=" + String(pm25) +
+        "&particule_10_0=" + String(pm10) +
+        "&id_capteur=" + id_capteur +
+        "&nom=" + nom_capteur;
+
+    requete.replace(" ", "%20"); // Encodage des espaces
+    
+    http.begin(requete);
+    int codeReponse = http.GET();
+    
+    // Debug série
+    Serial.println("URL: " + requete);
+    Serial.println("Code réponse: " + String(codeReponse));
+    
+    if(codeReponse == HTTP_CODE_OK) {
+        String reponse = http.getString();
+        Serial.println("Réponse: " + reponse);
+    }
+    
+    http.end();
 }
 
 void loop() {
-  // Lecture des données du capteur SHT31
-  float t = sht31.readTemperature(); // Lit la température du capteur SHT31
-  float h = sht31.readHumidity(); // Lit l'humidité du capteur SHT31
+    // Affichage original inchangé
+    M5.Lcd.fillScreen(BLACK);
+    M5.Lcd.setTextSize(2);
 
-  // Lecture des données du capteur PMSA003
-  pms.wakeUp(); // Réveille le capteur PMSA003
-  delay(30000); // Attendre 30 secondes pour stabiliser les lectures
-  pms.readUntil(data); // Lit les données du capteur PMSA003 jusqu'à ce qu'elles soient disponibles
-  pms.sleep(); // Met le capteur PMSA003 en veille
+    float t = sht31.readTemperature();
+    float h = sht31.readHumidity();
 
-  // Affichage des données sur l'écran
-  M5.Lcd.fillScreen(BLACK); // Remplit l'écran avec du noir
-  M5.Lcd.setTextSize(2); // Définit la taille du texte à 2
+    M5.Lcd.setCursor(0, 0);
+    M5.Lcd.setTextColor(TFT_YELLOW, TFT_BLACK);
+    M5.Lcd.printf("Temperature:");
+    M5.Lcd.setCursor(210, 0);
+    M5.Lcd.printf("%.2f C", t);
 
-  M5.Lcd.setCursor(0, 0); // Positionne le curseur en haut à gauche de l'écran
-  M5.Lcd.setTextColor(TFT_YELLOW, TFT_BLACK); // Définit la couleur du texte en jaune et le fond en noir
-  M5.Lcd.printf("Temperature:"); // Affiche "Temperature:"
-  M5.Lcd.setCursor(210, 0); // Positionne le curseur à la colonne 210, ligne 0
-  M5.Lcd.printf("%.2f C", t); // Affiche la température en degrés Celsius
+    M5.Lcd.setCursor(0, 50);
+    M5.Lcd.setTextColor(TFT_WHITE, TFT_BLACK);
+    M5.Lcd.printf("Humidite:");
+    M5.Lcd.setCursor(210, 50);
+    M5.Lcd.printf("%.2f %%", h);
 
-  M5.Lcd.setCursor(0, 50); // Positionne le curseur à la colonne 0, ligne 50
-  M5.Lcd.setTextColor(TFT_WHITE, TFT_BLACK); // Définit la couleur du texte en blanc et le fond en noir
-  M5.Lcd.printf("Humidite:"); // Affiche "Humidite:"
-  M5.Lcd.setCursor(210, 50); // Positionne le curseur à la colonne 210, ligne 50
-  M5.Lcd.printf("%.2f %%", h); // Affiche l'humidité en pourcentage
+    M5.Lcd.setTextColor(TFT_BLUE, TFT_BLACK);
+    M5.Lcd.setCursor(0, 100);
+    M5.Lcd.printf("Qualite de l'air:");
 
-  M5.Lcd.setTextColor(TFT_BLUE, TFT_BLACK); // Définit la couleur du texte en bleu et le fond en noir
-  M5.Lcd.setCursor(0, 100); // Positionne le curseur à la colonne 0, ligne 100
-  M5.Lcd.printf("Qualite de l'air:"); // Affiche "Qualite de l'air:"
+    M5.Lcd.setCursor(0, 120);
+    M5.Lcd.setTextColor(TFT_GREEN, TFT_BLACK);
+    M5.Lcd.printf("PM1.0:");
+    M5.Lcd.setCursor(210, 120);
+    M5.Lcd.printf("%d ug/m3", data.PM_AE_UG_1_0);
 
-  M5.Lcd.setCursor(0, 120); // Positionne le curseur à la colonne 0, ligne 120
-  M5.Lcd.setTextColor(TFT_GREEN, TFT_BLACK); // Définit la couleur du texte en vert et le fond en noir
-  M5.Lcd.printf("PM1.0:"); // Affiche "PM1.0:"
-  M5.Lcd.setCursor(210, 120); // Positionne le curseur à la colonne 210, ligne 120
-  M5.Lcd.printf("%d ug/m3", data.PM_AE_UG_1_0); // Affiche la concentration de PM1.0 en microgrammes par mètre cube
+    M5.Lcd.setCursor(0, 140);
+    M5.Lcd.setTextColor(TFT_OLIVE, TFT_BLACK);
+    M5.Lcd.printf("PM2.5:");
+    M5.Lcd.setCursor(210, 140);
+    M5.Lcd.printf("%d ug/m3", data.PM_AE_UG_2_5);
 
-  M5.Lcd.setCursor(0, 140); // Positionne le curseur à la colonne 0, ligne 140
-  M5.Lcd.setTextColor(TFT_OLIVE, TFT_BLACK); // Définit la couleur du texte en olive et le fond en noir
-  M5.Lcd.printf("PM2.5:"); // Affiche "PM2.5:"
-  M5.Lcd.setCursor(210, 140); // Positionne le curseur à la colonne 210, ligne 140
-  M5.Lcd.printf("%d ug/m3", data.PM_AE_UG_2_5); // Affiche la concentration de PM2.5 en microgrammes par mètre cube
+    M5.Lcd.setCursor(0, 160);
+    M5.Lcd.setTextColor(TFT_MAROON, TFT_BLACK);
+    M5.Lcd.printf("PM10:");
+    M5.Lcd.setCursor(210, 160);
+    M5.Lcd.printf("%d ug/m3", data.PM_AE_UG_10_0);
 
-  M5.Lcd.setCursor(0, 160); // Positionne le curseur à la colonne 0, ligne 160
-  M5.Lcd.setTextColor(TFT_MAROON, TFT_BLACK); // Définit la couleur du texte en marron et le fond en noir
-  M5.Lcd.printf("PM10:"); // Affiche "PM10:"
-  M5.Lcd.setCursor(210, 160); // Positionne le curseur à la colonne 210, ligne 160
-  M5.Lcd.printf("%d ug/m3", data.PM_AE_UG_10_0); // Affiche la concentration de PM10 en microgrammes par mètre cube
+    // Envoi des données après l'affichage
+    envoyerDonnees(t, h, data.PM_AE_UG_1_0, data.PM_AE_UG_2_5, data.PM_AE_UG_10_0);
 
-  delay(1000); // Attendre 1 seconde avant la prochaine lecture
+    delay(1000);
+    pms.wakeUp();
+    delay(30000);
+    pms.readUntil(data);
+    pms.sleep();
+
+
 }
