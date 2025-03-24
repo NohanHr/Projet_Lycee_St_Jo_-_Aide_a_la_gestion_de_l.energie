@@ -13,7 +13,7 @@ PMS::DATA data;
 // Configuration réseau
 const char* ssid = "Energie";
 const char* password = "gestionenergie";
-const char* serverUrl = "http://10.0.200.5/insert.php";
+const char* serverUrl = "http://10.5.25.5/insert.php";
 const String id_capteur = "M5Stack-01";
 const String nom_capteur = "Capteur_Salle_1";
 
@@ -81,12 +81,12 @@ void envoyerDonnees(float temp, float hum, float pm1, float pm25, float pm10) {
 }
 
 void loop() {
+    float t = sht31.readTemperature() - 2;
+    float h = sht31.readHumidity() -10;
+
     // Affichage original inchangé
     M5.Lcd.fillScreen(BLACK);
     M5.Lcd.setTextSize(2);
-
-    float t = sht31.readTemperature();
-    float h = sht31.readHumidity();
 
     M5.Lcd.setCursor(0, 0);
     M5.Lcd.setTextColor(TFT_YELLOW, TFT_BLACK);
@@ -126,10 +126,10 @@ void loop() {
     envoyerDonnees(t, h, data.PM_AE_UG_1_0, data.PM_AE_UG_2_5, data.PM_AE_UG_10_0);
 
     delay(1000);
+
     pms.wakeUp();
+    M5.Lcd.fillScreen(BLACK);
     delay(30000);
     pms.readUntil(data);
     pms.sleep();
-
-
 }
