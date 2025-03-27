@@ -1,0 +1,73 @@
+#include <Wire.h>
+#include <M5StickCPlus.h>
+#include "M5UnitENV.h"
+
+SHT3X sht3x;
+QMP6988 qmp;
+
+#define QMP6988_I2C_ADDR 0x70
+#define SHT30_I2C_ADDR 0x44
+
+void setup() {
+    M5.begin();
+    Wire.begin();
+    M5.Lcd.setRotation(1);
+    M5.Lcd.fillScreen(BLACK);
+
+    M5.Lcd.setCursor(0, 0);
+    M5.Lcd.setTextSize(2);
+    M5.Lcd.printf("Initiali\n");
+
+    Serial.begin(115200);
+    while (!qmp.begin(&Wire, QMP6988_I2C_ADDR, 0, 26, 100000U)) {
+        Serial.println("Couldn't find QMP6988");
+        M5.Lcd.printf("Couldn't find QMP6988\n");
+        delay(10);
+    }
+
+    while (!sht3x.begin(&Wire, SHT3X_I2C_ADDR, 0, 26, 10000U)) {
+        Serial.println("Couldn't find SHT3X");
+        M5.Lcd.printf("Couldn't find SHT3X\n");
+        delay(10);
+    }
+}
+
+void loop() {
+    M5.Lcd.setTextSize(2);
+
+    if (sht3x.update()) {
+        Serial.println("-----SHT3X-----");
+        Serial.print("Temperature: ");
+        Serial.print(sht3x.cTemp);
+        Serial.println(" degrees C");
+        Serial.print("Humidity: ");
+        Serial.print(sht3x.humidity);
+        Serial.println("% rH");
+        Serial.println("-------------\r\n");
+
+        M5.Lcd.setCursor(0, 0);
+        M5.Lcd.printf("Temp: %.2f C\n", sht3x.cTemp);
+        M5.Lcd.printf("Humidity: %.2f %%\n", sht3x.humidity);
+    }
+
+    if (qmp.update()) {
+        Serial.println("-----QMP6988-----");
+        Serial.print(F("Temperature: "));
+        Serial.print(qmp.cTemp);
+        Serial.println(" *C");
+        Serial.print(F("Pressure: "));
+        Serial.print(qmp.pressure);
+        Serial.println(" Pa");
+        Serial.print(F("Approx altitude: "));
+        Serial.print(qmp.altitude);
+        Serial.println(" m");
+        Serial.println("-------------\r\n");
+
+        M5.Lcd.setCursor(0, 40); 
+        M5.Lcd.printf("Pressure: %.2f Pa\n", qmp.pressure);
+        M5.Lcd.printf("Altitude: %.2f m\n", qmp.altitude);
+  
+
+    }
+    delay(1000);
+}
