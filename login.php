@@ -109,13 +109,13 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         }
 
         input:focus {
-            border-color: #6a11cb;
+            border-color:rgb(17, 203, 64);
             outline: none;
         }
 
         /* Style du bouton */
         button {
-            background: linear-gradient(135deg, #6a11cb, #2575fc);
+            background: linear-gradient(135deg,rgb(17, 203, 17),rgb(37, 252, 66));
             color: white;
             padding: 12px;
             border: none;
@@ -127,7 +127,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         }
 
         button:hover {
-            background: linear-gradient(135deg, #2575fc, #6a11cb);
+            background: linear-gradient(135deg,rgb(123, 252, 37),rgb(70, 203, 17));
         }
 
         /* Message d'erreur */
