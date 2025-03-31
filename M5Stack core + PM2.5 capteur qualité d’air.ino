@@ -129,7 +129,7 @@ void loop() {
 
     pms.wakeUp();
     M5.Lcd.fillScreen(BLACK);
-    delay(30000);
+    delay(1200000);
     pms.readUntil(data);
     pms.sleep();
 }
