@@ -14,8 +14,8 @@ PMS::DATA data;
 const char* ssid = "Energie";
 const char* password = "gestionenergie";
 const char* serverUrl = "http://10.5.25.5/insert.php";
-const String id_capteur = "M5Stack-01";
-const String nom_capteur = "Capteur_Salle_1";
+const String id_capteur = "M5Stack-01";                    //const String id_capteur = "M5Stack-02";        //const String id_capteur = "M5Stack-03";
+const String nom_capteur = "Capteur_Salle_1";              //const String nom_capteur = "Capteur_Salle_2";  //const String nom_capteur = "Capteur_Salle_3";
 
 void header(const char *string, uint16_t color) {
     M5.Lcd.fillScreen(color);
