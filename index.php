@@ -1,9 +1,19 @@
+<?php
+session_start();
+// Début du fichier
+require_once 'auth.php'; // Inclure la vérification de session
+// Redirige vers login.php si pas connecté
+if (!isset($_SESSION["user"])) {
+    header("Location: login.php");
+    exit();
+}
+?>
 <!DOCTYPE html>
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tableau de bord - Gestion énergétique</title>
+    <title> Accueil - Gestion énergétique</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css"/>
     <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
@@ -236,25 +246,23 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
 </head>
 <body>
+    
     <div class="container">
         <!-- Sidebar -->
         <aside class="sidebar">
             <div class="logo">
-                <h2><i class="fas fa-leaf"></i> EcoTrack</h2>
-                <p>Gestion énergétique</p>
+                <h2><i class="fas fa-leaf"></i> Gestion énergie</h2>
             </div>
             <ul class="nav-menu">
-                <li class="nav-item"><a href="#" class="nav-link active"><i class="fas fa-tachometer-alt"></i> Tableau de bord</a></li>
-                <li class="nav-item"><a href="#" class="nav-link"><i class="fas fa-map-marker-alt"></i> Cartographie</a></li>
-                <li class="nav-item"><a href="#" class="nav-link"><i class="fas fa-chart-line"></i> Statistiques</a></li>
-                <li class="nav-item"><a href="#" class="nav-link"><i class="fas fa-cog"></i> Paramètres</a></li>
-                <li class="nav-item"><a href="#" class="nav-link"><i class="fas fa-users"></i> Utilisateurs</a></li>
+                <li class="nav-item"><a href="index.php" class="nav-link active"><i class="fas fa-tachometer-alt"></i> Tableau de bord</a></li>
+                <li class="nav-item"><a href="carte.php" class="nav-link"><i class="fas fa-map-marker-alt"></i> Cartographie</a></li>
+                <li class="nav-item"><a href="graphique.php" class="nav-link"><i class="fas fa-chart-pie"></i> Graphiques</a></li>
             </ul>
         </aside>
 
         <!-- Header -->
         <header class="header">
-            <h1>Tableau de bord</h1>
+            <h1>Accueil</h1>
             <div class="user-info">
                 <a href="logout.php" class="logout-button"><i class="fas fa-sign-out-alt"></i> Déconnexion</a>
             </div>
@@ -265,7 +273,7 @@
             <!-- Data entry card -->
             <div class="card">
                 <div class="card-title">
-                    <span><i class="fas fa-edit"></i> Saisie des données</span>
+                    <span><i class="fas fa-edit"></i> Ajouter un capteur</span>
                 </div>
                 <form name="formulaire" action="getmeteo.php" method="POST">
                     <div class="form-group">
@@ -293,345 +301,126 @@
                     </div>
                     
                     <div class="form-group">
-                        <label for="temperature">Température (°C)</label>
+                        <label for="temperature">Date</label>
                         <input type="number" id="temperature" name="temperature" class="form-control" min="0" max="90" step="0.01" required>
                     </div>
                     
                     <button type="submit" class="btn btn-block">
-                        <i class="fas fa-paper-plane"></i> Envoyer les données
+                        <i class="fas fa-paper-plane"></i> valider l'enregistrement du capteur
                     </button>
                 </form>
             </div>
+            <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css"/>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+        }
+        .card {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+            overflow: hidden;
+        }
+        .card-title {
+            background: #2c3e50;
+            color: white;
+            padding: 15px;
+            font-size: 18px;
+        }
+        .card-title i {
+            margin-right: 10px;
+        }
+        #mapid {
+            height: 500px; /* Dimension essentielle */
+            width: 100%;
+        }
+        .charts-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            padding: 15px;
+        }
+        .chart-container {
+            flex: 1;
+            min-width: 300px;
+            height: 300px;
+        }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <div class="card-title">
+            <span><i class="fas fa-map-marked-alt"></i> Localisation des capteurs</span>
+        </div>
+        <div id="mapid"></div>
+    </div>
 
-            <!-- Map card -->
-            <div class="card">
-                <div class="card-title">
-                    <span><i class="fas fa-map-marked-alt"></i> Localisation des capteurs</span>
-                </div>
-                <div id="mapid"></div>
+    <!-- Charts section -->
+    <div class="card">
+        <div class="card-title">
+        </div>
+        <div class="charts-container">
+            <div class="chart-container">
+                <canvas id="tempTimeChart"></canvas>
             </div>
+            <div class="chart-container">
+                <canvas id="particlesChart"></canvas>
+            </div>
+        </div>
+    </div>
+    
 
-            <!-- Charts section -->
-            <div class="card">
-                <div class="card-title">
-                    <span><i class="fas fa-chart-area"></i> Visualisation des données</span>
-                </div>
-                <div class="charts-container">
-                    <div class="chart-container">
-                        <canvas id="tempTimeChart"></canvas>
-                    </div>
-                    <div class="chart-container">
-                        <canvas id="particlesChart"></canvas>
-                    </div>
-                </div>
-            </div>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <script type="text/javascript">
+        const cleApi = "6988f2000aa4f8bb860abfe5e68c58ca"; // Remplacez par votre clé OpenWeather
+    
         // Initialisation de la carte
-        const carte = L.map('mapid').setView([47.7485, -3.3668], 13); // Centré sur Lorient par défaut
+        const carte = L.map('mapid').setView([47.7485, -3.3668], 13);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         }).addTo(carte);
-
-        let marqueurs = [];
-        const cleApi = '6988f2000aa4f8bb860abfe5e68c58ca';
-
-        // Fonction pour ajouter un marqueur à la carte
+    
+        // Fonction pour ajouter un marqueur avec des données météo
         function ajouterMarqueur(lat, lon) {
-            $.getJSON(`https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${cleApi}&units=metric`)
+            $.getJSON(`https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${cleApi}&units=metric&lang=fr`)
                 .done(function(data) {
                     const temperature = data.main.temp;
-                    const ville = data.name;
+                    const humidite = data.main.humidity;
+                    const ville = data.name || "Inconnu";
+                    const description = data.weather[0].description;
+    
                     const infoMeteo = `
                         <b>${ville}</b><br>
                         Température: ${temperature} °C<br>
-                        Humidité: ${data.main.humidity}%<br>
-                        Conditions: ${data.weather[0].description}
+                        Humidité: ${humidite}%<br>
+                        Conditions: ${description}
                     `;
-
-                    const marqueur = L.marker([lat, lon]).addTo(carte)
+    
+                    L.marker([lat, lon]).addTo(carte)
                         .bindPopup(infoMeteo)
                         .openPopup();
-                    marqueurs.push(marqueur);
-
-                    document.getElementById('temperature').value = temperature;
-                    carte.setView([lat, lon], 13);
                 })
-                .fail(function(jqXHR, textStatus, errorThrown) {
-                    console.error("Erreur météo:", textStatus, errorThrown);
-                    // Ajouter le marqueur même sans données météo
-                    const marqueur = L.marker([lat, lon]).addTo(carte)
-                        .bindPopup(`Localisation: ${lat.toFixed(6)}, ${lon.toFixed(6)}`)
+                .fail(function() {
+                    L.marker([lat, lon]).addTo(carte)
+                        .bindPopup("Impossible de récupérer les données météo.")
                         .openPopup();
-                    marqueurs.push(marqueur);
                 });
         }
-
-        // Fonction pour charger les points de la base de données
-        function chargerPoints() {
-            $.getJSON('getPoints.php')
-                .done(function(points) {
-                    points.forEach(point => {
-                        ajouterMarqueur(point.latitude, point.longitude);
-                    });
-                    if (points.length > 0) {
-                        const lastPoint = points[points.length - 1];
-                        carte.setView([lastPoint.latitude, lastPoint.longitude], 13);
-                    }
-                })
-                .fail(function(jqXHR, textStatus, errorThrown) {
-                    console.error("Erreur chargement points:", textStatus, errorThrown);
-                });
-        }
-
-        // Écouteur d'événement pour le clic sur la carte
+    
+        // Ajout d'un événement de clic sur la carte
         carte.on('click', function(e) {
             const lat = e.latlng.lat;
             const lon = e.latlng.lng;
-
-            document.getElementById('latitude').value = lat.toFixed(6);
-            document.getElementById('longitude').value = lon.toFixed(6);
             ajouterMarqueur(lat, lon);
         });
-
-        // Fonction pour récupérer la géolocalisation
-        function obtenirLocalisation() {
-            const infoElement = document.getElementById('info');
-            infoElement.textContent = 'Localisation en cours...';
-            infoElement.style.color = '#666';
-
-            if (navigator.geolocation) {
-                navigator.geolocation.getCurrentPosition(
-                    function(position) {
-                        const lat = position.coords.latitude;
-                        const lon = position.coords.longitude;
-                        document.getElementById('latitude').value = lat;
-                        document.getElementById('longitude').value = lon;
-                        carte.setView([lat, lon], 13);
-                        ajouterMarqueur(lat, lon);
-                        infoElement.textContent = 'Localisation réussie';
-                        infoElement.style.color = 'var(--success-color)';
-                    },
-                    function(error) {
-                        let message = "Erreur de géolocalisation: ";
-                        switch(error.code) {
-                            case error.PERMISSION_DENIED:
-                                message += "Permission refusée";
-                                break;
-                            case error.POSITION_UNAVAILABLE:
-                                message += "Position indisponible";
-                                break;
-                            case error.TIMEOUT:
-                                message += "Délai dépassé";
-                                break;
-                            default:
-                                message += "Erreur inconnue";
-                        }
-                        infoElement.textContent = message;
-                        infoElement.style.color = 'var(--danger-color)';
-                        console.error("Erreur géolocalisation:", error);
-                    },
-                    { enableHighAccuracy: true, timeout: 10000 }
-                );
-            } else {
-                infoElement.textContent = "Géolocalisation non supportée par ce navigateur";
-                infoElement.style.color = 'var(--danger-color)';
-            }
-        }
-
-        // Initialisation des graphiques
-const tempTimeCtx = document.getElementById('tempTimeChart').getContext('2d');
-const tempTimeChart = new Chart(tempTimeCtx, {
-    type: 'line',
-    data: {
-        datasets: [
-            {
-                label: 'Température (°C)',
-                data: [],
-                borderColor: 'rgba(255, 99, 132, 1)',
-                backgroundColor: 'rgba(255, 99, 132, 0.1)',
-                borderWidth: 2,
-                tension: 0.1,
-                yAxisID: 'y'
-            },
-            {
-                label: 'Humidité (%)',
-                data: [],
-                borderColor: 'rgba(54, 162, 235, 1)',
-                backgroundColor: 'rgba(54, 162, 235, 0.1)',
-                borderWidth: 2,
-                tension: 0.1,
-                yAxisID: 'y1'
-            }
-        ]
-    },
-    options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-            tooltip: {
-                callbacks: {
-                    label: function(context) {
-                        let label = context.dataset.label || '';
-                        if (label) {
-                            label += ': ';
-                        }
-                        label += context.parsed.y;
-                        if (context.dataset.label === 'Température (°C)') {
-                            label += '°C';
-                        } else {
-                            label += '%';
-                        }
-                        label += ` (ID: ${context.parsed.x})`;
-                        return label;
-                    }
-                }
-            }
-        },
-        scales: {
-            x: {
-                title: { 
-                    display: true, 
-                    text: 'Temps (mesures toutes les 20 minutes)', 
-                    color: '#666' 
-                },
-                type: 'linear',
-                grid: { color: 'rgba(0, 0, 0, 0.05)' }
-            },
-            y: {
-                title: { 
-                    display: true, 
-                    text: 'Température (°C)', 
-                    color: 'rgba(255, 99, 132, 1)' 
-                },
-                position: 'left',
-                min: 0,
-                grid: { color: 'rgba(0, 0, 0, 0.05)' }
-            },
-            y1: {
-                title: { 
-                    display: true, 
-                    text: 'Humidité (%)', 
-                    color: 'rgba(54, 162, 235, 1)' 
-                },
-                position: 'right',
-                min: 0,
-                max: 100,
-                grid: { drawOnChartArea: false }
-            }
-        }
-    }
-});
-
-const particlesCtx = document.getElementById('particlesChart').getContext('2d');
-const particlesChart = new Chart(particlesCtx, {
-    type: 'line',
-    data: {
-        datasets: [
-            { 
-                label: 'PM 1.0 (µm)', 
-                data: [], 
-                borderColor: 'rgba(255, 99, 132, 1)', 
-                backgroundColor: 'rgba(255, 99, 132, 0.1)',
-                borderWidth: 2,
-                tension: 0.1,
-                fill: true
-            },
-            { 
-                label: 'PM 2.5 (µm)', 
-                data: [], 
-                borderColor: 'rgba(54, 162, 235, 1)', 
-                backgroundColor: 'rgba(54, 162, 235, 0.1)',
-                borderWidth: 2,
-                tension: 0.1,
-                fill: true
-            },
-            { 
-                label: 'PM 10.0 (µm)', 
-                data: [], 
-                borderColor: 'rgba(75, 192, 192, 1)', 
-                backgroundColor: 'rgba(75, 192, 192, 0.1)',
-                borderWidth: 2,
-                tension: 0.1,
-                fill: true
-            }
-        ]
-    },
-    options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-            tooltip: {
-                mode: 'index',
-                intersect: false,
-                callbacks: {
-                    label: function(context) {
-                        return `${context.dataset.label}: ${context.parsed.y} µg/m³ (ID: ${context.parsed.x})`;
-                    }
-                }
-            }
-        },
-        scales: {
-            x: {
-                title: { 
-                    display: true, 
-                    text: 'Temps (mesures toutes les 20 minutes)', 
-                    color: '#666' 
-                },
-                type: 'linear',
-                grid: { color: 'rgba(0, 0, 0, 0.05)' }
-            },
-            y: {
-                title: { display: true, text: 'Concentration (µg/m³)', color: '#666' },
-                min: 0,
-                grid: { color: 'rgba(0, 0, 0, 0.05)' }
-            }
-        },
-        interaction: {
-            mode: 'nearest',
-            axis: 'x',
-            intersect: false
-        }
-    }
-});
-
-// Fonction pour charger les données des graphiques
-function chargerDonneesGraphiques() {
-    fetch('getdata.php')
-        .then(response => {
-            if (!response.ok) throw new Error('Erreur réseau');
-            return response.json();
-        })
-        .then(data => {
-            // Graphique Température et Humidité vs Temps
-            if (data.tempHumidityData && data.tempHumidityData.length > 0) {
-                tempTimeChart.data.datasets[0].data = data.tempHumidityData.map(item => ({x: item.id, y: item.temp}));
-                tempTimeChart.data.datasets[1].data = data.tempHumidityData.map(item => ({x: item.id, y: item.hum}));
-                tempTimeChart.update();
-            }
-
-            // Graphique Particules
-            if (data.particlesData && data.particlesData.length > 0) {
-                particlesChart.data.datasets[0].data = data.particlesData.map(item => ({x: item.id, y: item.pm1_0}));
-                particlesChart.data.datasets[1].data = data.particlesData.map(item => ({x: item.id, y: item.pm2_5}));
-                particlesChart.data.datasets[2].data = data.particlesData.map(item => ({x: item.id, y: item.pm10_0}));
-                particlesChart.update();
-            }
-        })
-        .catch(error => {
-            console.error('Erreur chargement données:', error);
-        });
-}
-
-        // Chargement initial
-        document.addEventListener('DOMContentLoaded', function() {
-            chargerPoints();
-            chargerDonneesGraphiques();
-            
-            // Actualisation périodique
-            setInterval(chargerDonneesGraphiques, 60000);
-            setInterval(chargerPoints, 300000); // Toutes les 5 minutes
-        });
+    
     </script>
 </body>
 </html>
