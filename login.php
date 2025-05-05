@@ -1,8 +1,8 @@
 <?php
 session_start();
-
+// Redirige vers index.php si déjà connecté
 if (isset($_SESSION["user"])) {
-    header("Location: index.html");
+    header("Location: index.php");
     exit();
 }
 
@@ -14,44 +14,44 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC
         ]);
 
-        $username = htmlspecialchars(trim($_POST["username"])); // Protection XSS
-        $password = htmlspecialchars(trim($_POST["password"])); // Protection XSS
+        // Nettoyage des inputs SANS htmlspecialchars
+        $username = trim($_POST["username"]);
+        $password = trim($_POST["password"]);
 
-        // Récupérer l'utilisateur depuis la base de données
+        // Récupérer l'utilisateur
         $stmt = $pdo->prepare("SELECT * FROM users WHERE username = ?");
         $stmt->execute([$username]);
         $user = $stmt->fetch();
 
         if ($user) {
-            // Vérifier si le mot de passe est haché
+            // Vérifier le mot de passe haché
             if (password_verify($password, $user['password'])) {
-                // Mot de passe haché : connexion réussie
                 $_SESSION["user"] = $username;
-                header("Location: index.html");
+                header("Location: index.php");
                 exit();
-            } elseif ($password === $user['password']) {
-                // Mot de passe en clair : connexion réussie
+            } 
+            // Vérifier l'ancien mot de passe en clair (transition)
+            elseif ($password === $user['password']) {
                 $_SESSION["user"] = $username;
 
-                // Optionnel : hacher le mot de passe et mettre à jour la base de données
+                // Mise à jour vers le hachage
                 $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
                 $updateStmt = $pdo->prepare("UPDATE users SET password = ? WHERE username = ?");
                 $updateStmt->execute([$hashedPassword, $username]);
 
-                header("Location: index.html");
+                header("Location: index.php");
                 exit();
             } else {
-                // Mot de passe incorrect
-                $error = "Nom d'utilisateur ou mot de passe incorrect.";
+                $error = "Identifiants incorrects.";
             }
         } else {
-            // Utilisateur non trouvé
-            $error = "Nom d'utilisateur ou mot de passe incorrect.";
+            $error = "Identifiants incorrects.";
         }
     } catch (PDOException $e) {
-        $error = "Erreur de connexion : " . $e->getMessage();
+        $error = "Erreur de connexion : " . htmlspecialchars($e->getMessage());
     }
 }
+
 ?>
 <!DOCTYPE html>
 <html lang="fr">
@@ -152,7 +152,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         .register-link a:hover {
             text-decoration: underline;
         }
-    </style>
+    </style>    
 </head>
 <body>
 
