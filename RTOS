@@ -1,0 +1,55 @@
+#include <M5Core2.h>
+#include <Wire.h>
+#include <WiFi.h>
+#include "Adafruit_SCD30.h" // Pour capteur U103 compatible SCD30
+
+Adafruit_SCD30 scd30;
+
+void TaskCapteur(void *pvParameters) {
+  while (1) {
+    if (scd30.dataReady()) {
+      if (scd30.read()) {
+        Serial.printf("CO2: %.2f ppm, Temp: %.2f C, Hum: %.2f %%\n",
+                      scd30.CO2, scd30.temperature, scd30.relative_humidity);
+      }
+    }
+
+    int son = analogRead(34); // Exemple sur une entrée analogique
+    Serial.printf("Niveau sonore (brut) : %d\n", son);
+
+    vTaskDelay(10000 / portTICK_PERIOD_MS); // Attente 10 secondes
+  }
+}
+
+void TaskWiFi(void *pvParameters) {
+  WiFi.begin("SSID", "password");
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+  Serial.println("\n[WiFi] Connecté.");
+
+  while (1) {
+    // Envoi des données simulées
+    Serial.println("[WiFi] Envoi des données vers la base...");
+
+    vTaskDelay(15000 / portTICK_PERIOD_MS); // Toutes les 15 secondes
+  }
+}
+
+void setup() {
+  M5.begin();
+  Wire.begin();
+  Serial.begin(115200);
+
+  if (!scd30.begin()) {
+    Serial.println("Erreur : capteur U103 non détecté !");
+  }
+
+  xTaskCreatePinnedToCore(TaskCapteur, "Capteur", 4096, NULL, 1, NULL, 1);
+  xTaskCreatePinnedToCore(TaskWiFi, "WiFi", 4096, NULL, 2, NULL, 0);
+}
+
+void loop() {
+  // Rien ici, tout est géré en multitâche
+}
