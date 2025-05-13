@@ -1,0 +1,98 @@
+#include <Wire.h>
+#include <M5StickCPlus.h>
+#include "M5UnitENV.h"
+
+SHT3X sht3x;
+QMP6988 qmp;
+
+#define QMP6988_I2C_ADDR 0x70
+#define SHT30_I2C_ADDR 0x44
+#define MLX90614_ADDR 0x5A
+
+bool mlx90614_found = false;
+
+void setup() {
+    M5.begin();
+    Wire.begin();
+    M5.Lcd.setRotation(1);
+    M5.Lcd.fillScreen(BLACK);
+    M5.Lcd.setTextColor(WHITE);
+    M5.Lcd.setTextSize(1);
+
+    Serial.begin(115200);
+    
+    // Initialisation QMP6988
+    while (!qmp.begin(&Wire, QMP6988_I2C_ADDR, 0, 26, 100000U)) {
+        Serial.println("Couldn't find QMP6988");
+        M5.Lcd.setCursor(0, 0);
+        M5.Lcd.println("QMP6988 not found");
+        delay(500);
+    }
+
+    // Initialisation SHT3X
+    while (!sht3x.begin(&Wire, SHT3X_I2C_ADDR, 0, 26, 10000U)) {
+        Serial.println("Couldn't find SHT3X");
+        M5.Lcd.setCursor(0, 10);
+        M5.Lcd.println("SHT3X not found");
+        delay(500);
+    }
+
+    
+    Wire.beginTransmission(MLX90614_ADDR);
+    mlx90614_found = (Wire.endTransmission() == 0);
+    if (!mlx90614_found) {
+        M5.Lcd.setCursor(0, 20);
+        M5.Lcd.println("MLX90614 not found");
+    }
+
+    // En-tête
+    M5.Lcd.setTextSize(2);
+    M5.Lcd.setCursor(5, 5);
+    M5.Lcd.println("Donnees meteo");
+    M5.Lcd.setTextSize(1);
+}
+
+void loop() {
+    
+    M5.Lcd.fillRect(0, 30, 135, 80, BLACK);
+
+    
+    if (sht3x.update()) {
+        M5.Lcd.setCursor(5, 30);
+        M5.Lcd.setTextColor(GREEN);
+        M5.Lcd.printf("Air: %.1fC", sht3x.cTemp);
+        
+        M5.Lcd.setCursor(5, 45);
+        M5.Lcd.printf("Hum: %.1f%%", sht3x.humidity);
+    }
+
+    
+    if (qmp.update()) {
+        M5.Lcd.setCursor(5, 60);
+        M5.Lcd.setTextColor(YELLOW);
+        M5.Lcd.printf("Pres: %.0fhPa", qmp.pressure/100.0);
+    }
+
+    
+    if (mlx90614_found) {
+        uint16_t result;
+        float mlx_temp;
+        Wire.beginTransmission(MLX90614_ADDR);  
+        Wire.write(0x07);  
+        Wire.endTransmission(false);  
+        Wire.requestFrom(MLX90614_ADDR, 2);  
+        if (Wire.available() >= 2) {
+            result = Wire.read();        
+            result |= Wire.read() << 8;  
+            mlx_temp = result * 0.02 - 273.15;
+
+            M5.Lcd.setCursor(5, 75);
+            M5.Lcd.setTextColor(RED);
+            M5.Lcd.printf("IR: %.1fC", mlx_temp);
+        }
+    }
+
+    
+
+    delay(1000);
+}
