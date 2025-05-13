@@ -1,0 +1,91 @@
+#include <Wire.h>
+#include <M5StickCPlus.h>
+#include <SensirionI2cScd4x.h>
+
+SensirionI2cScd4x scd40;
+
+void setup() {
+  Serial.begin(115200);
+  Serial.println("Initialisation M5StickC Plus...");
+  
+  M5.begin(true, true, true);  
+  Wire.begin(32, 33);  
+  
+  M5.Lcd.setRotation(3);
+  M5.Lcd.fillScreen(BLACK);
+  M5.Lcd.setTextSize(2);
+  M5.Lcd.println("Demarrage...");
+  delay(2000);
+
+  
+  scd40.begin(Wire, 0x62);  
+
+  uint16_t error;
+  char errorMessage[256];
+
+  Serial.println("Attente du capteur...");
+  delay(8000);  
+
+  uint64_t serial0;
+  error = scd40.getSerialNumber(serial0);
+  if (error) {
+    Serial.printf("Erreur SCD40: 0x%04X\n", error);
+    M5.Lcd.fillScreen(BLACK);
+    M5.Lcd.println("ERREUR CAPTEUR");
+    while (1);
+  } else {
+    Serial.printf("SCD40 Serial: %llu\n", serial0);
+    M5.Lcd.println("Capteur OK!");
+  }
+
+  error = scd40.startPeriodicMeasurement();
+  if (error) {
+    Serial.printf("Erreur mesure: 0x%04X\n", error);
+    M5.Lcd.println("ERREUR MESURE");
+    while (1);
+  } else {
+    Serial.println("Mesures demarrees!");
+    M5.Lcd.println("Pret!");
+  }
+}
+
+void loop() {
+  bool dataReady = false;
+  uint16_t error = scd40.getDataReadyStatus(dataReady);
+
+  if (error) {
+    Serial.printf("Erreur dataReady: 0x%04X\n", error);
+    delay(1000);
+    return;
+  }
+
+  if (!dataReady) {
+    M5.Lcd.fillScreen(BLACK);
+    M5.Lcd.setCursor(0, 0);
+    M5.Lcd.println("Chargement...");
+    delay(1000);
+    return;
+  }
+
+  uint16_t co2;
+  float temp, hum;
+  error = scd40.readMeasurement(co2, temp, hum);
+
+  if (error) {
+    Serial.printf("Erreur lecture: 0x%04X\n", error);
+    M5.Lcd.fillScreen(BLACK);
+    M5.Lcd.setCursor(0, 0);
+    M5.Lcd.printf("Erreur: 0x%04X", error);
+    delay(1000);
+    return;
+  }
+
+  M5.Lcd.fillScreen(BLACK);
+  M5.Lcd.setCursor(0, 0);
+  M5.Lcd.printf("CO2: %d ppm\n", co2);
+  M5.Lcd.printf("Temp: %.1f C\n", temp);
+  M5.Lcd.printf("Hum: %.1f %%", hum);
+
+  Serial.printf("CO2: %d ppm, Temp: %.1f C, Hum: %.1f %%\n", co2, temp, hum);
+  delay(5000);
+}
