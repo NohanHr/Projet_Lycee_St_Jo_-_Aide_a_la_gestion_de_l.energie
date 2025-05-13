@@ -1,0 +1,34 @@
+#include <M5StickCPlus.h>
+
+void setup() {
+    M5.begin();
+    Wire.begin();
+    M5.Lcd.fillScreen(BLACK);  // Efface l'écran avec un fond noir
+    M5.Lcd.setTextColor(WHITE);  // Définit la couleur du texte en blanc
+    M5.Lcd.setTextSize(2);
+    M5.Lcd.setCursor(10, 10);
+    M5.Lcd.print("Donnee temperature");
+
+    // Dessiner un cadre autour de l'affichage de la température
+    M5.Lcd.drawRect(5, 45, 230, 80, WHITE);
+}
+
+void loop() {
+    static uint16_t result;
+    static float temperature;
+    Wire.beginTransmission(0x5A);  
+    Wire.write(0x07);  
+    Wire.endTransmission(false);  
+    Wire.requestFrom(0x5A, 2);  x.
+    result = Wire.read();        
+    result |= Wire.read() << 8;  
+
+    temperature = result * 0.02 - 273.15;
+
+    M5.Lcd.fillRect(10, 50, 220, 60, BLACK);  // Efface la zone de texte précédente
+    M5.Lcd.setCursor(10, 60);
+    M5.Lcd.setTextSize(2);
+    M5.Lcd.setTextColor(GREEN);  // Change la couleur du texte en vert
+    M5.Lcd.printf("Temp: %.2f C", temperature);
+    delay(500);
+}
