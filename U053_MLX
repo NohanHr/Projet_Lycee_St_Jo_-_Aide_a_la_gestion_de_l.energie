@@ -38,12 +38,6 @@ void setup() {
     }
 
     
-    Wire.beginTransmission(MLX90614_ADDR);
-    mlx90614_found = (Wire.endTransmission() == 0);
-    if (!mlx90614_found) {
-        M5.Lcd.setCursor(0, 20);
-        M5.Lcd.println("MLX90614 not found");
-    }
 
     // En-tête
     M5.Lcd.setTextSize(2);
@@ -73,26 +67,6 @@ void loop() {
         M5.Lcd.printf("Pres: %.0fhPa", qmp.pressure/100.0);
     }
 
-    
-    if (mlx90614_found) {
-        uint16_t result;
-        float mlx_temp;
-        Wire.beginTransmission(MLX90614_ADDR);  
-        Wire.write(0x07);  
-        Wire.endTransmission(false);  
-        Wire.requestFrom(MLX90614_ADDR, 2);  
-        if (Wire.available() >= 2) {
-            result = Wire.read();        
-            result |= Wire.read() << 8;  
-            mlx_temp = result * 0.02 - 273.15;
+        delay(1000);
 
-            M5.Lcd.setCursor(5, 75);
-            M5.Lcd.setTextColor(RED);
-            M5.Lcd.printf("IR: %.1fC", mlx_temp);
-        }
     }
-
-    
-
-    delay(1000);
-}
