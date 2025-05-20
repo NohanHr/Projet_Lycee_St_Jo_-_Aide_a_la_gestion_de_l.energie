@@ -1,6 +1,5 @@
 <?php
 session_start();
-// Redirige vers index.php si déjà connecté
 if (isset($_SESSION["user"])) {
     header("Location: index.php");
     exit();
@@ -10,34 +9,35 @@ $error = "";
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     try {
         $pdo = new PDO("mysql:host=localhost;dbname=energie;charset=utf8", "admin", "ciel2", [
-            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC
+            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION
         ]);
 
-        // Nettoyage des inputs SANS htmlspecialchars
         $username = trim($_POST["username"]);
         $password = trim($_POST["password"]);
 
-        // Récupérer l'utilisateur
-        $stmt = $pdo->prepare("SELECT * FROM users WHERE username = ?");
+        $stmt = $pdo->prepare("SELECT * FROM utilisateurs WHERE username = ?");
         $stmt->execute([$username]);
         $user = $stmt->fetch();
 
         if ($user) {
-            // Vérifier le mot de passe haché
             if (password_verify($password, $user['password'])) {
-                $_SESSION["user"] = $username;
+                // Création de la session avec le rôle
+                $_SESSION["user"] = [
+                    "username" => $user["username"],
+                    "role" => $user["role"]
+                ];
                 header("Location: index.php");
                 exit();
-            } 
-            // Vérifier l'ancien mot de passe en clair (transition)
-            elseif ($password === $user['password']) {
-                $_SESSION["user"] = $username;
+            } elseif ($password === $user['password']) {
+                // Mise à jour du mot de passe et création de session
+                $_SESSION["user"] = [
+                    "username" => $user["username"],
+                    "role" => $user["role"]
+                ];
 
-                // Mise à jour vers le hachage
                 $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
-                $updateStmt = $pdo->prepare("UPDATE users SET password = ? WHERE username = ?");
-                $updateStmt->execute([$hashedPassword, $username]);
+                $updateStmt = $pdo->prepare("UPDATE utilisateurs SET password = ? WHERE username = ?");
+                $updateStmt->execute([$hashedPassword, $user['username']]);
 
                 header("Location: index.php");
                 exit();
@@ -51,7 +51,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $error = "Erreur de connexion : " . htmlspecialchars($e->getMessage());
     }
 }
-
 ?>
 <!DOCTYPE html>
 <html lang="fr">
@@ -152,7 +151,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         .register-link a:hover {
             text-decoration: underline;
         }
-    </style>    
+    </style>
 </head>
 <body>
 
@@ -170,3 +169,5 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
 </body>
 </html>
+
+
