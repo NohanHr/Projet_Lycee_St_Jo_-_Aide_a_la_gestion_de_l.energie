@@ -7,17 +7,50 @@ if (!estConnecte()) {
 }
 
 if (estVisiteur()) {
-    echo "<h1>Bienvenue, visiteur</h1>";
-    echo "<p>Voici les courbes en lecture seule</p>";
+    echo "<h1>Bienvenue, utilisateur</h1>";
     // affichage des courbes sans possibilité de modifier
 }
 
 if (estAdmin()) {
     echo "<h1>Bienvenue, admin</h1>";
-    echo "<p>Accès complet</p>";
     // accès total à la configuration, édition, etc.
 }
+
+function calculateDJU($temperature, $baseTemp) {
+    return max(0, $baseTemp - $temperature);
+}
+
+if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['baseTemp'])) {
+    $baseTemp = $_POST['baseTemp'];
+
+    $cleApi = "6988f2000aa4f8bb860abfe5e68c58ca";
+    $url = "https://api.openweathermap.org/data/2.5/weather?lat=47.7485&lon=-3.3668&appid=$cleApi&units=metric";
+
+    $response = @file_get_contents($url);
+    if ($response === FALSE) {
+        echo "Error: Failed to retrieve weather data.";
+        exit;
+    }
+
+    $weatherData = json_decode($response, true);
+
+    if ($weatherData && isset($weatherData['main']) && isset($weatherData['weather'][0])) {
+        $temperature = $weatherData['main']['temp'];
+        $dju = calculateDJU($temperature, $baseTemp);
+
+        $result = [
+            'temperature' => $temperature,
+            'baseTemp' => $baseTemp,
+            'dju' => $dju
+        ];
+    } else {
+        $result = [
+            'error' => "Error: Invalid weather data received."
+        ];
+    }
+}
 ?>
+
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -231,6 +264,14 @@ if (estAdmin()) {
             height: 300px;
         }
 
+        /* Result container */
+        .result-container {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 8px;
+        }
+
         /* Responsive adjustments */
         @media (max-width: 992px) {
             .container {
@@ -264,7 +305,7 @@ if (estAdmin()) {
                 <h2><i class="fas fa-leaf"></i> Gestion énergie</h2>
             </div>
             <ul class="nav-menu">
-                <li class="nav-item"><a href="index.php" class="nav-link active"><i class="fas fa-tachometer-alt"></i> Tableau de bord</a></li>
+                <li class="nav-item"><a href="index.php" class="nav-link active"><i class="fas fa-tachometer-alt"></i> Accueil</a></li>
                 <li class="nav-item"><a href="carte.php" class="nav-link"><i class="fas fa-map-marker-alt"></i> Cartographie</a></li>
                 <li class="nav-item"><a href="graphique.php" class="nav-link"><i class="fas fa-chart-pie"></i> Graphiques</a></li>
             </ul>
@@ -283,153 +324,30 @@ if (estAdmin()) {
             <!-- Data entry card -->
             <div class="card">
                 <div class="card-title">
-                    <span><i class="fas fa-edit"></i> Ajouter un capteur</span>
+                    <span><i class="fas fa-edit"></i> Calculer les DJU</span>
                 </div>
-                <form name="formulaire" action="getmeteo.php" method="POST">
+                <form name="formulaire" action="index.php" method="POST">
                     <div class="form-group">
-                        <label for="salle">Nom de la salle</label>
-                        <input type="text" id="salle" name="salle" class="form-control" title="au moins 2 caractères alphabétiques" minlength="2" required>
+                        <label for="baseTemp">Température de référence (°C)</label>
+                        <input type="number" id="baseTemp" name="baseTemp" class="form-control" min="0" max="50" step="0.1" required>
                     </div>
-
-                    <div class="form-group">
-                        <label for="id_capteur">ID du capteur (1-100)</label>
-                        <input type="number" id="id_capteur" name="id_capteur" class="form-control" min="1" max="100" required>
-                    </div>
-
-                    <div class="form-group">
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-                            <div>
-                                <label for="latitude">Latitude</label>
-                                <input type="number" id="latitude" name="latitude" class="form-control" min="-90" max="90" step="0.0000001" required>
-                            </div>
-                            <div>
-                                <label for="longitude">Longitude</label>
-                                <input type="number" id="longitude" name="longitude" class="form-control" min="-180" max="180" step="0.0000001" required>
-                            </div>
-                        </div>
-                        <span id="info" style="display: block; font-size: 12px; color: #666; margin-top: 5px;"></span>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="temperature">Date</label>
-                        <input type="number" id="temperature" name="temperature" class="form-control" min="0" max="90" step="0.01" required>
-                    </div>
-
                     <button type="submit" class="btn btn-block">
-                        <i class="fas fa-paper-plane"></i> valider l'enregistrement du capteur
+                        <i class="fas fa-calculator"></i> Calculer les DJU
                     </button>
                 </form>
+                <?php if (isset($result)): ?>
+                    <div class="result-container">
+                        <?php if (isset($result['error'])): ?> 
+                            <p><?php echo $result['error']; ?></p>
+                        <?php else: ?>
+                            <p>Température actuelle: <?php echo $result['temperature']; ?> °C</p>
+                            <p>Température de référence: <?php echo $result['baseTemp']; ?> °C</p>
+                            <p>DJU calculé: <?php echo $result['dju']; ?></p>
+                        <?php endif; ?>
+                    </div>
+                <?php endif; ?>
             </div>
-            <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css"/>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 0;
-            padding: 20px;
-        }
-        .card {
-            background: white;
-            border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            margin-bottom: 20px;
-            overflow: hidden;
-        }
-        .card-title {
-            background: #2c3e50;
-            color: white;
-            padding: 15px;
-            font-size: 18px;
-        }
-        .card-title i {
-            margin-right: 10px;
-        }
-        #mapid {
-            height: 500px; /* Dimension essentielle */
-            width: 100%;
-        }
-        .charts-container {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 20px;
-            padding: 15px;
-        }
-        .chart-container {
-            flex: 1;
-            min-width: 300px;
-            height: 300px;
-        }
-    </style>
-</head>
-<body>
-    <div class="card">
-        <div class="card-title">
-            <span><i class="fas fa-map-marked-alt"></i> Localisation des capteurs</span>
-        </div>
-        <div id="mapid"></div>
+        </main>
     </div>
-
-    <!-- Charts section -->
-    <div class="card">
-        <div class="card-title">
-        </div>
-        <div class="charts-container">
-            <div class="chart-container">
-                <canvas id="tempTimeChart"></canvas>
-            </div>
-            <div class="chart-container">
-                <canvas id="particlesChart"></canvas>
-            </div>
-        </div>
-    </div>
-
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
-    <script type="text/javascript">
-        const cleApi = "6988f2000aa4f8bb860abfe5e68c58ca"; // Remplacez par votre clé OpenWeather
-
-        // Initialisation de la carte
-        const carte = L.map('mapid').setView([47.7485, -3.3668], 13);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-        }).addTo(carte);
-
-        // Fonction pour ajouter un marqueur avec des données météo
-        function ajouterMarqueur(lat, lon) {
-            $.getJSON(`https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${cleApi}&units=metric&lang=fr`)
-                .done(function(data) {
-                    const temperature = data.main.temp;
-                    const humidite = data.main.humidity;
-                    const ville = data.name || "Inconnu";
-                    const description = data.weather[0].description;
-
-                    const infoMeteo = `
-                        <b>${ville}</b><br>
-                        Température: ${temperature} °C<br>
-                        Humidité: ${humidite}%<br>
-                        Conditions: ${description}
-                    `;
-
-                    L.marker([lat, lon]).addTo(carte)
-                        .bindPopup(infoMeteo)
-                        .openPopup();
-                })
-                .fail(function() {
-                    L.marker([lat, lon]).addTo(carte)
-                        .bindPopup("Impossible de récupérer les données météo.")
-                        .openPopup();
-                });
-        }
-
-        // Ajout d'un événement de clic sur la carte
-        carte.on('click', function(e) {
-            const lat = e.latlng.lat;
-            const lon = e.latlng.lng;
-            ajouterMarqueur(lat, lon);
-        });
-
-    </script>
 </body>
 </html>
