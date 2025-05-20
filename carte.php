@@ -43,9 +43,27 @@
             min-width: 300px;
             height: 300px;
         }
+        .back-button {
+            background-color: #2c3e50;
+            color: white;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-bottom: 20px;
+            transition: background-color 0.3s ease;
+        }
+        .back-button:hover {
+            background-color: #1a252f;
+        }
     </style>
 </head>
 <body>
+    <button class="back-button" onclick="window.location.href='index.php'">
+        <i class="fas fa-arrow-left"></i> Retour à l'accueil
+    </button>
+
     <div class="card">
         <div class="card-title">
             <span><i class="fas fa-map-marked-alt"></i> Localisation des capteurs</span>
@@ -66,7 +84,6 @@
             </div>
         </div>
     </div>
-    
 
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
@@ -74,13 +91,13 @@
 
     <script type="text/javascript">
         const cleApi = "6988f2000aa4f8bb860abfe5e68c58ca"; // Remplacez par votre clé OpenWeather
-    
+
         // Initialisation de la carte
         const carte = L.map('mapid').setView([47.7485, -3.3668], 13);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         }).addTo(carte);
-    
+
         // Fonction pour ajouter un marqueur avec des données météo
         function ajouterMarqueur(lat, lon) {
             $.getJSON(`https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${cleApi}&units=metric&lang=fr`)
@@ -89,14 +106,14 @@
                     const humidite = data.main.humidity;
                     const ville = data.name || "Inconnu";
                     const description = data.weather[0].description;
-    
+
                     const infoMeteo = `
                         <b>${ville}</b><br>
                         Température: ${temperature} °C<br>
                         Humidité: ${humidite}%<br>
                         Conditions: ${description}
                     `;
-    
+
                     L.marker([lat, lon]).addTo(carte)
                         .bindPopup(infoMeteo)
                         .openPopup();
@@ -107,14 +124,14 @@
                         .openPopup();
                 });
         }
-    
+
         // Ajout d'un événement de clic sur la carte
         carte.on('click', function(e) {
             const lat = e.latlng.lat;
             const lon = e.latlng.lng;
             ajouterMarqueur(lat, lon);
         });
-    
+
     </script>
 </body>
 </html>
