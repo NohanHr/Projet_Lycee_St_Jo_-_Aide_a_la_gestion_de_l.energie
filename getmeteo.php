@@ -3,10 +3,10 @@ ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
 
-$serveurNom = 'mysql-elouan.alwaysdata.net';
+$serveurNom = 'localhost';
 $utilisateur = 'elouan';
 $motDePasse = 'Elouan29**';
-$dbNom = 'elouan_energie';
+$dbNom = 'energie';
 
 function connectToDatabase($serveurNom, $utilisateur, $motDePasse, $dbNom) {
     try {
