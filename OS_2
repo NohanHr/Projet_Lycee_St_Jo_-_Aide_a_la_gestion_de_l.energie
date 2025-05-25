@@ -1,0 +1,34 @@
+void Task_SCD40(void *pvParameters) {
+  for(;;) {
+    lireSCD40(); // Lecture CO2, température, humidité
+    vTaskDelay(5000 / portTICK_PERIOD_MS);
+  }
+}
+
+void Task_U053(void *pvParameters) {
+  for(;;) {
+    lireU053(); // Lecture température, humidité, pression
+    vTaskDelay(5000 / portTICK_PERIOD_MS);
+  }
+}
+
+void Task_SendData(void *pvParameters) {
+  for(;;) {
+    envoyerVersBase(); // Envoi vers MySQL ou autre
+    vTaskDelay(10000 / portTICK_PERIOD_MS);
+  }
+}
+
+void Task_Display(void *pvParameters) {
+  for(;;) {
+    miseAJourAffichage(); // Affichage sur l'écran
+    vTaskDelay(2000 / portTICK_PERIOD_MS);
+  }
+}
+
+void setup() {
+  xTaskCreate(Task_SCD40, "SCD40", 2048, NULL, 2, NULL);
+  xTaskCreate(Task_U053, "U053", 2048, NULL, 1, NULL);
+  xTaskCreate(Task_SendData, "Send", 2048, NULL, 1, NULL);
+  xTaskCreate(Task_Display, "Display", 2048, NULL, 0, NULL);
+}
