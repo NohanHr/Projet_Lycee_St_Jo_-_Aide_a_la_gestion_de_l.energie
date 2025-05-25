@@ -1,34 +1,98 @@
+#include <M5StickCPlus.h>
+#include <Wire.h>
+#include <WiFi.h>
+#include <HTTPClient.h>
+#include <SparkFun_SCD4x_Arduino_Library.h> // SCD40
+
+SCD4x scd40;
+
+// Wi-Fi
+const char* ssid = "Energie";
+const char* password = "gestionenergie";
+
+// Données globales
+float temp_scd40 = 0, hum_scd40 = 0, co2 = 0;
+float temp_u053 = 0, hum_u053 = 0, pression = 0;
+
+SemaphoreHandle_t dataMutex;
+
 void Task_SCD40(void *pvParameters) {
   for(;;) {
-    lireSCD40(); // Lecture CO2, température, humidité
+    if (scd40.readMeasurement()) {
+      xSemaphoreTake(dataMutex, portMAX_DELAY);
+      co2 = scd40.getCO2();
+      temp_scd40 = scd40.getTemperature();
+      hum_scd40 = scd40.getHumidity();
+      xSemaphoreGive(dataMutex);
+    }
     vTaskDelay(5000 / portTICK_PERIOD_MS);
   }
 }
 
 void Task_U053(void *pvParameters) {
   for(;;) {
-    lireU053(); // Lecture température, humidité, pression
+    // Simulation de lecture - à adapter selon ton capteur réel
+    xSemaphoreTake(dataMutex, portMAX_DELAY);
+    temp_u053 = 24.5;
+    hum_u053 = 50.0;
+    pression = 1013.25;
+    xSemaphoreGive(dataMutex);
+
     vTaskDelay(5000 / portTICK_PERIOD_MS);
   }
 }
 
 void Task_SendData(void *pvParameters) {
   for(;;) {
-    envoyerVersBase(); // Envoi vers MySQL ou autre
+    xSemaphoreTake(dataMutex, portMAX_DELAY);
+    float t1 = temp_scd40, h1 = hum_scd40, c = co2;
+    float t2 = temp_u053, h2 = hum_u053, p = pression;
+    xSemaphoreGive(dataMutex);
+
+    if (WiFi.status() == WL_CONNECTED) {
+      HTTPClient http;
+      String url = "http://adresse_serveur/insert.php?";
+      url += "co2=" + String(c) + "&temp1=" + String(t1) + "&hum1=" + String(h1);
+      url += "&temp2=" + String(t2) + "&hum2=" + String(h2) + "&press=" + String(p);
+      http.begin(url);
+      http.GET(); // simplifié
+      http.end();
+    }
+
     vTaskDelay(10000 / portTICK_PERIOD_MS);
   }
 }
 
 void Task_Display(void *pvParameters) {
   for(;;) {
-    miseAJourAffichage(); // Affichage sur l'écran
+    M5.Lcd.setCursor(0, 0);
+    M5.Lcd.fillScreen(BLACK);
+
+    xSemaphoreTake(dataMutex, portMAX_DELAY);
+    M5.Lcd.printf("CO2: %.1f ppm\nTemp1: %.1f C\nHum1: %.1f %%\n", co2, temp_scd40, hum_scd40);
+    M5.Lcd.printf("Temp2: %.1f C\nHum2: %.1f %%\nPress: %.1f hPa\n", temp_u053, hum_u053, pression);
+    xSemaphoreGive(dataMutex);
+
     vTaskDelay(2000 / portTICK_PERIOD_MS);
   }
 }
 
 void setup() {
-  xTaskCreate(Task_SCD40, "SCD40", 2048, NULL, 2, NULL);
+  M5.begin();
+  Wire.begin();
+  WiFi.begin(ssid, password);
+  while (WiFi.status() != WL_CONNECTED) delay(500);
+
+  scd40.begin();
+  scd40.startPeriodicMeasurement();
+
+  dataMutex = xSemaphoreCreateMutex();
+
+  xTaskCreate(Task_SCD40, "SCD40", 4096, NULL, 2, NULL);
   xTaskCreate(Task_U053, "U053", 2048, NULL, 1, NULL);
-  xTaskCreate(Task_SendData, "Send", 2048, NULL, 1, NULL);
+  xTaskCreate(Task_SendData, "Send", 4096, NULL, 1, NULL);
   xTaskCreate(Task_Display, "Display", 2048, NULL, 0, NULL);
+}
+
+void loop() {
 }
