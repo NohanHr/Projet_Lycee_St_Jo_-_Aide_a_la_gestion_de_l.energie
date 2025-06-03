@@ -17,7 +17,7 @@ if (estAdmin()) {
 }
 
 function calculateDJU($temperature, $baseTemp) {
-    return max(0, $baseTemp - $temperature);
+    return abs($baseTemp - $temperature);
 }
 
 if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['baseTemp'])) {
