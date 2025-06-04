@@ -1,0 +1,442 @@
+#include <WiFi.h>
+#include <HTTPClient.h>
+#include <SparkFun_SCD4x_Arduino_Library.h>
+#include <Adafruit_BME280.h>
+#include <Wire.h>
+#include <driver/i2s.h>
+
+
+#include <string>
+
+
+#define BME_280 0
+#define SCD40 1
+
+#define ID 100  // identifiant du M5stick pour la BDD
+
+// === WiFi ===
+const char* ssid = "Energie";
+const char* password = "gestionenergie";
+
+// === URLs des scripts PHP ===
+const char* url_U103 = "http://10.5.25.5/u103.php";
+const char* url_U053 = "http://10.5.25.5/u053.php";
+const char* url_son = "http://10.5.25.5/add_son.php";
+
+// === Capteurs ===
+SCD4x scd4x;                // Capteur U103
+Adafruit_BME280 bme;        // Capteur U053
+
+// === Structures ===
+struct U103Data {
+  float temperature;
+  float humidity;
+  uint16_t CO2;
+};
+
+struct U053Data {
+  float temperature;
+  float humidity;
+  float pressure;
+};
+
+struct SonData{
+  float level;
+  int id;
+};
+
+// === SON ===
+#include <M5StickC.h>
+#include <driver/i2s.h>
+
+
+// === Files FreeRTOS ===
+QueueHandle_t u103Queue;
+QueueHandle_t u053Queue;
+QueueHandle_t sonQueue;
+
+
+
+//===== Semaphore d'exlusion mutuel pour gérer l'affichage ==
+// Déclaration du mutex
+SemaphoreHandle_t mutexSerial;
+
+// === Tâche capteur U103 (CO2) ===
+void u103Task(void* parameter) {
+   Serial.println("tache 103 lancée");
+  while (true) {
+   
+    if (scd4x.readMeasurement()) {
+      U103Data data = {
+        .temperature = scd4x.getTemperature(),
+        .humidity = scd4x.getHumidity(),
+        .CO2 = scd4x.getCO2()
+      };
+       Serial.println("1 ");
+       Serial.println(data.CO2);
+
+      xQueueSend(u103Queue, &data, portMAX_DELAY);
+      Serial.println("[U103] Mesure envoyée en file.");
+    } else {
+      Serial.println("[U103] Échec de lecture de mesure.");
+    }
+
+    vTaskDelay(pdMS_TO_TICKS(5000));
+  }
+}
+
+// === Tâche capteur U053 (BME280) ===
+void u053Task(void* parameter) {
+  while (true) {
+    U053Data data = {
+      .temperature = bme.readTemperature(),
+      .humidity = bme.readHumidity(),
+      .pressure = bme.readPressure() / 100.0F
+    };
+    xQueueSend(u053Queue, &data, portMAX_DELAY);
+    Serial.println("[U053] Mesure envoyée en file.");
+    vTaskDelay(pdMS_TO_TICKS(5000));
+  }
+}
+
+// === Tâche d'envoi HTTP U103 ===
+void httpU103Task(void* parameter) {
+ 
+  while (true) {
+    U103Data data;
+    
+    if (xQueueReceive(u103Queue, &data, portMAX_DELAY) == pdPASS) {
+      if (WiFi.status() == WL_CONNECTED) {
+        HTTPClient http;
+        http.begin(url_U103);
+        http.addHeader("Content-Type", "application/json");
+
+        String json = String("{\"temperature\":") + data.temperature +
+                      ",\"humidity\":" + data.humidity +
+                      ",\"CO2\":" + data.CO2 + "}";
+
+        int code = http.POST(json);
+        if (code > 0)
+          Serial.printf("[HTTP U103] Code : %d\n", code);
+        else
+          Serial.printf("[HTTP U103] Erreur : %s\n", http.errorToString(code).c_str());
+
+        http.end();
+      } else {
+        Serial.println("[HTTP U103] WiFi non connecté.");
+      }
+    }
+  }
+}
+
+// === Tâche d'envoi HTTP U053 ===
+void httpU053Task(void* parameter) {
+  Serial.println("tache 53 lancée");
+  while (true) {
+    Serial.println("5 ");
+    U053Data data;
+    if (xQueueReceive(u053Queue, &data, portMAX_DELAY) == pdPASS) {
+      if (WiFi.status() == WL_CONNECTED) {
+        HTTPClient http;
+        http.begin(url_U053);
+        http.addHeader("Content-Type", "application/json");
+
+        String json = String("{\"temperature\":") + data.temperature +
+                      ",\"humidity\":" + data.humidity +
+                      ",\"pressure\":" + data.pressure + "}";
+
+        int code = http.POST(json);
+        if (code > 0)
+          Serial.printf("[HTTP U053] Code : %d\n", code);
+        else
+          Serial.printf("[HTTP U053] Erreur : %s\n", http.errorToString(code).c_str());
+
+        http.end();
+      } else {
+        Serial.println("[HTTP U053] WiFi non connecté.");
+      }
+    }
+  }
+}
+
+
+
+// === Tâche d'envoi du SON ===
+void httpSONTask(void* parameter) {
+  Serial.println("tache envoi Son lancée -------------");
+  while (true) {
+    Serial.println("e s ");
+    SonData data;
+    if (xQueueReceive(sonQueue, &data, portMAX_DELAY) == pdPASS) {
+      if (WiFi.status() == WL_CONNECTED) {
+      
+      HTTPClient http;
+
+    http.begin(url_son);
+    http.addHeader("Content-Type", "application/x-www-form-urlencoded");
+
+    // Données à envoyer 
+      String postData = "level=";
+      String tmp = String(data.level,2);
+      postData += tmp;
+      postData += "&id_m5=";
+      tmp = String(data.id);
+      postData += tmp;
+      Serial.println(postData);
+  
+
+    int httpResponseCode = http.POST(postData);
+
+    if (httpResponseCode > 0) {
+      String response = http.getString();
+      Serial.println("Code réponse : " + String(httpResponseCode));
+      Serial.println("Réponse : " + response);
+    } else {
+      Serial.println("Erreur dans l'envoi : " + String(httpResponseCode));
+    }
+
+    http.end();
+
+
+      } else {
+        Serial.println("[HTTP SON] WiFi non connecté.");
+      }
+    }
+  }
+}
+
+
+//=== Le son ======
+int threshold = 1500; //configure the threshold that has to be exceeded before an alert is being sent
+//String http_endpoint = ""; //configure the HTTP API endpoint to call when the threshold has been exceeded. Note that the exceeded value will be send as an additional argument in the URL
+
+int custom_delay = 10000; //use this delay to rate-limit the HTTP requests and prevent spamming of the endpoint
+
+
+
+//-------------------------------------------------------------------------------------------
+#define I2S_WS      25
+#define I2S_SD      34
+#define I2S_SCK     0
+
+void i2sInit() {
+  i2s_config_t i2s_config = {
+    .mode = i2s_mode_t(I2S_MODE_MASTER | I2S_MODE_RX),
+    .sample_rate = 16000,
+    .bits_per_sample = I2S_BITS_PER_SAMPLE_16BIT,
+    .channel_format = I2S_CHANNEL_FMT_ONLY_LEFT,
+    .communication_format = I2S_COMM_FORMAT_I2S_MSB,
+    .intr_alloc_flags = 0,
+    .dma_buf_count = 4,
+    .dma_buf_len = 256,
+    .use_apll = false,
+    .tx_desc_auto_clear = false,
+    .fixed_mclk = 0
+  };
+
+  i2s_pin_config_t pin_config = {
+    .bck_io_num = I2S_SCK,
+    .ws_io_num = I2S_WS,
+    .data_out_num = I2S_PIN_NO_CHANGE,
+    .data_in_num = I2S_SD
+  };
+
+  i2s_driver_install(I2S_NUM_0, &i2s_config, 0, NULL);
+  i2s_set_pin(I2S_NUM_0, &pin_config);
+  i2s_zero_dma_buffer(I2S_NUM_0);
+}
+
+
+
+float readMic() {
+  const int sampleCount = 256;
+  int16_t samples[sampleCount];
+  size_t bytesRead;
+
+  i2s_read(I2S_NUM_0, &samples, sizeof(samples), &bytesRead, portMAX_DELAY);
+
+  long sum = 0;
+  for (int i = 0; i < sampleCount; i++) {
+    sum += abs(samples[i]);
+  }
+  float level = sum / (float)sampleCount;
+  Serial.print("Volume approx: ");
+  Serial.println(level);
+  return level;
+}
+
+
+
+/* old vesrion 
+
+#define PIN_CLK  0
+#define PIN_DATA 34
+#define READ_LEN (2 * 256)
+#define GAIN_FACTOR 3
+uint8_t BUFFER[READ_LEN] = {0};
+
+bool debug = true; //debug mode, enable to show more info on the LCD
+
+uint16_t oldy[160];
+int16_t *adcBuffer = NULL;
+void i2sInit()
+{
+   i2s_config_t i2s_config = {
+    .mode = (i2s_mode_t)(I2S_MODE_MASTER | I2S_MODE_RX | I2S_MODE_PDM),
+    .sample_rate =  44100,
+    .bits_per_sample = I2S_BITS_PER_SAMPLE_16BIT, // is fixed at 12bit, stereo, MSB
+    .channel_format = I2S_CHANNEL_FMT_ALL_RIGHT,
+    .communication_format = I2S_COMM_FORMAT_I2S,
+    .intr_alloc_flags = ESP_INTR_FLAG_LEVEL1,
+    .dma_buf_count = 2,
+    .dma_buf_len = 128,
+   };
+
+   i2s_pin_config_t pin_config;
+   pin_config.bck_io_num   = I2S_PIN_NO_CHANGE;
+   pin_config.ws_io_num    = PIN_CLK;
+   pin_config.data_out_num = I2S_PIN_NO_CHANGE;
+   pin_config.data_in_num  = PIN_DATA;
+  
+   
+   i2s_driver_install(I2S_NUM_1, &i2s_config, 0, NULL);
+   i2s_set_pin(I2S_NUM_1, &pin_config);
+   i2s_set_clk(I2S_NUM_1, 44100, I2S_BITS_PER_SAMPLE_16BIT, I2S_CHANNEL_MONO);
+}
+
+
+//== Mesure du son ===============
+void measureSignal(){
+  int y;
+  int max = -10000;
+  Serial.println("mesure.......");
+  for (int n = 0; n < 160; n++){
+    y = adcBuffer[n] * GAIN_FACTOR;
+    if (y > max) {
+      max = y;
+    }
+  }
+   Serial.println(y);
+   /*M5.Lcd.fillScreen(BLACK);
+      M5.Lcd.setCursor(1,3,1);
+      M5.Lcd.println("Noise!!");
+      M5.Lcd.println("Amp value: "+String(max));
+      M5.Lcd.println("Notification sent");
+
+      Serial.println("Noise!!");
+      Serial.println("Amp value: "+String(max));
+      Serial.println("Notification sent");
+  if (max > threshold) {
+    if (debug) {
+      M5.Lcd.fillScreen(BLACK);
+      M5.Lcd.setCursor(1,3,1);
+      M5.Lcd.println("Noise!!");
+      M5.Lcd.println("Amp value: "+String(max));
+      M5.Lcd.println("Notification sent");
+
+      Serial.println("Noise!!");
+      Serial.println("Amp value: "+String(max));
+      Serial.println("Notification sent");
+
+    }
+    //send_http_request(max);
+  }
+}
+*/
+void micRecordTask (void* arg)
+{   
+  size_t bytesread;
+  Serial.println("tache SON lancée");
+  while(1){
+    
+    float level = readMic();
+    SonData data;
+    data.level = level;
+    data.id = ID;
+    //if (xSemaphoreTake(mutexSerial, portMAX_DELAY)){ // prend le mutex pour gérer l'affiucheur
+      Serial.println(data.level);
+      Serial.println(data.id);
+      // ajouter le print sur l'afficheur
+      //xSemaphoreGive(mutexSerial);  // rend le mutex pour que les autres taches 
+    //}
+    xQueueSend(sonQueue, &data, portMAX_DELAY);
+    Serial.println("[SON] Mesure envoyée en file.");
+   
+
+    //i2s_read(I2S_NUM_0,(char*) BUFFER, READ_LEN, &bytesread, (100 / portTICK_RATE_MS));
+    //adcBuffer = (int16_t *)BUFFER;
+    //measureSignal();
+    Serial.println("S");
+    vTaskDelay(5000 / portTICK_RATE_MS);
+  }
+}
+// === Connexion WiFi ===
+void setupWifi() {
+  Serial.println("Connexion WiFi...");
+  WiFi.begin(ssid, password);
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+  Serial.println("\n[WiFi] Connecté !");
+}
+
+// === Setup ===
+void setup() {
+   M5.begin(); // pour le son
+  Serial.begin(115200);
+  Wire.begin();
+
+  setupWifi();
+
+  // Init capteurs
+  if (!scd4x.begin()) {
+    Serial.println("[ERREUR] Capteur SCD4x non détecté !");
+    while (true);
+  }
+  scd4x.startPeriodicMeasurement();
+
+#if BME_280 
+  if (!bme.begin(0x76)) {
+    Serial.println("[ERREUR] Capteur BME280 non détecté !");
+    while (true);
+  }
+
+
+
+   // Création du mutex
+  //mutexSerial = xSemaphoreCreateMutex();
+
+  /*if (mutexSerial == NULL) {
+    Serial.println("Erreur de création du mutex !");
+    return;
+  }*/
+#endif
+  // Créer files
+  u103Queue = xQueueCreate(10, sizeof(U103Data));
+  sonQueue = xQueueCreate(10, sizeof(SonData));
+
+  u053Queue = xQueueCreate(10, sizeof(U053Data));
+  if (!u103Queue || !u053Queue  || !sonQueue) {
+    Serial.println("[ERREUR] Création de file échouée !");
+    while (true);
+  }
+
+  // Tâches
+  xTaskCreatePinnedToCore(u103Task, "U103Task", 4096, NULL, 1, NULL, 1);
+  //xTaskCreatePinnedToCore(u053Task, "U053Task", 4096, NULL, 1, NULL, 1);
+  //xTaskCreatePinnedToCore(httpU103Task, "HttpU103Task", 4096, NULL, 1, NULL, 1);
+  //xTaskCreatePinnedToCore(httpU053Task, "HttpU053Task", 4096, NULL, 1, NULL, 1);
+  i2sInit();
+  xTaskCreate(micRecordTask, "micRecordTask", 2048, NULL, 1, NULL);
+  xTaskCreatePinnedToCore(httpSONTask, "HttpSONTask", 2048, NULL, 1, NULL, 1);
+}
+
+
+
+void loop() {
+  // Tout fonctionne via les tâches FreeRTOS
+  vTaskDelay(1000 / portTICK_RATE_MS); // otherwise the main task wastes half of the cpu cycles
+
+}
+
