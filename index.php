@@ -6,19 +6,8 @@ if (!estConnecte()) {
     exit();
 }
 
-if (estVisiteur()) {
-    echo "<h1>Bienvenue, utilisateur</h1>";
-    // affichage des courbes sans possibilité de modifier
-}
-
-if (estAdmin()) {
-    echo "<h1>Bienvenue, admin</h1>";
-    // accès total à la configuration, édition, etc.
-}
-
-function calculateDJU($temperature, $baseTemp) {
-    return abs($baseTemp - $temperature);
-}
+// Déterminer le thème en fonction du rôle
+$themeClass = estAdmin() ? 'admin-theme' : 'default-theme';
 
 if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['baseTemp'])) {
     $baseTemp = $_POST['baseTemp'];
@@ -49,6 +38,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['baseTemp'])) {
         ];
     }
 }
+
+function calculateDJU($temperature, $baseTemp) {
+    return abs($baseTemp - $temperature);
+}
 ?>
 
 <!DOCTYPE html>
@@ -56,7 +49,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['baseTemp'])) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title> Accueil - Gestion énergétique</title>
+    <title>Accueil - Gestion énergétique</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css"/>
     <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
@@ -69,6 +62,13 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['baseTemp'])) {
             --success-color: #2ed573;
             --light-color: #f1f2f6;
             --dark-color: #2f3542;
+        }
+
+        /* Thème admin (vert) */
+        .admin-theme {
+            --primary-color: #1e8449;
+            --secondary-color: #28b463;
+            --success-color: #239b56;
         }
 
         * {
@@ -146,13 +146,15 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['baseTemp'])) {
         .user-info {
             display: flex;
             align-items: center;
+            gap: 15px;
         }
 
-        .user-info img {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            margin-right: 10px;
+        .user-role {
+            padding: 5px 10px;
+            background-color: var(--primary-color);
+            color: white;
+            border-radius: 20px;
+            font-size: 0.8rem;
         }
 
         .logout-button {
@@ -292,11 +294,17 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['baseTemp'])) {
             .charts-container {
                 grid-template-columns: 1fr;
             }
+            
+            .user-info {
+                flex-direction: column;
+                align-items: flex-end;
+                gap: 5px;
+            }
         }
     </style>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
 </head>
-<body>
+<body class="<?php echo $themeClass; ?>">
 
     <div class="container">
         <!-- Sidebar -->
@@ -308,6 +316,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['baseTemp'])) {
                 <li class="nav-item"><a href="index.php" class="nav-link active"><i class="fas fa-tachometer-alt"></i> Accueil</a></li>
                 <li class="nav-item"><a href="carte.php" class="nav-link"><i class="fas fa-map-marker-alt"></i> Cartographie</a></li>
                 <li class="nav-item"><a href="graphique.php" class="nav-link"><i class="fas fa-chart-pie"></i> Graphiques</a></li>
+                <?php if (estAdmin()): ?>
+                    <li class="nav-item"><a href="admin.php" class="nav-link"><i class="fas fa-cog"></i> Administration</a></li>
+                <?php endif; ?>
             </ul>
         </aside>
 
@@ -315,12 +326,21 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['baseTemp'])) {
         <header class="header">
             <h1>Accueil</h1>
             <div class="user-info">
+                <span class="user-role"><?php echo estAdmin() ? 'Administrateur' : 'Utilisateur'; ?></span>
                 <a href="logout.php" class="logout-button"><i class="fas fa-sign-out-alt"></i> Déconnexion</a>
             </div>
         </header>
 
         <!-- Main content -->
         <main class="main-content">
+            <?php if (estVisiteur()): ?>
+                <h1>Bienvenue, utilisateur</h1>
+            <?php endif; ?>
+
+            <?php if (estAdmin()): ?>
+                <h1>Bienvenue, administrateur</h1>
+            <?php endif; ?>
+
             <!-- Data entry card -->
             <div class="card">
                 <div class="card-title">
