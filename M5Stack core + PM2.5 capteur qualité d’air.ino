@@ -103,15 +103,17 @@ void setup() {
     header("M5Stack PM2.5", TFT_BLACK);               // Affiche un titre sur l'écran
 }
 
-// === Fonction pour envoyer les données au serveur HTTP ===
+// === Fonction pour envoyer les données au serveur HTTP via POST ===
 void envoyerDonnees(float temp, float hum, float pm1, float pm25, float pm10) {
-    if(WiFi.status() != WL_CONNECTED) return;         // Ne rien faire si déconnecté
+    if (WiFi.status() != WL_CONNECTED) return;         // Ne rien faire si déconnecté
 
-    HTTPClient http;                                  // Création d'un client HTTP
+    HTTPClient http;                                   // Création d'un client HTTP
+    http.begin(serverUrl);                             // Définition de l'URL
+    http.addHeader("Content-Type", "application/x-www-form-urlencoded");  // Type de contenu
 
-    // Construction de la requête GET avec les données
-    String requete = String(serverUrl) + 
-        "?temperature=" + String(temp) +
+    // Construction des données au format POST
+    String postData = 
+        "temperature=" + String(temp) +
         "&humidite=" + String(hum) +
         "&particule_1_0=" + String(pm1) +
         "&particule_2_5=" + String(pm25) +
@@ -119,21 +121,21 @@ void envoyerDonnees(float temp, float hum, float pm1, float pm25, float pm10) {
         "&id_capteur=" + id_capteur +
         "&nom=" + nom_capteur;
 
-    requete.replace(" ", "%20");                      // Encodage des espaces
+    int codeReponse = http.POST(postData);             // Envoie des données via POST
 
-    http.begin(requete);                              // Prépare la requête HTTP
-    int codeReponse = http.GET();                     // Envoie la requête GET
-
-    Serial.println("URL: " + requete);                // Affiche l'URL pour debug
+    Serial.println("POST data: " + postData);          // Debug
     Serial.println("Code réponse: " + String(codeReponse));
 
-    if(codeReponse == HTTP_CODE_OK) {                 // Si tout va bien (200 OK)
-        String reponse = http.getString();            // Lecture de la réponse
+    if (codeReponse == HTTP_CODE_OK) {
+        String reponse = http.getString();             // Lire la réponse du serveur
         Serial.println("Réponse: " + reponse);
+    } else {
+        Serial.println("Erreur HTTP: " + String(codeReponse));
     }
 
-    http.end();                                       // Ferme la connexion HTTP
+    http.end();                                        // Ferme la connexion HTTP
 }
+
 
 // === Boucle principale ===
 void loop() {
