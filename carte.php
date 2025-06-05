@@ -100,30 +100,47 @@
 
         // Fonction pour ajouter un marqueur avec des données météo
         function ajouterMarqueur(lat, lon) {
-            $.getJSON(`https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${cleApi}&units=metric&lang=fr`)
-                .done(function(data) {
-                    const temperature = data.main.temp;
-                    const humidite = data.main.humidity;
-                    const ville = data.name || "Inconnu";
-                    const description = data.weather[0].description;
+    $.getJSON(`https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${cleApi}&units=metric&lang=fr`)
+        .done(function(data) {
+            const temperature = data.main.temp;
+            const humidite = data.main.humidity;
+            const vent = data.wind.speed;
+            const ville = data.name || "Inconnu";
+            const description = data.weather[0].description;
 
-                    const infoMeteo = `
-                        <b>${ville}</b><br>
-                        Température: ${temperature} °C<br>
-                        Humidité: ${humidite}%<br>
-                        Conditions: ${description}
-                    `;
+            const infoMeteo = `
+                <b>${ville}</b><br>
+                Température: ${temperature} °C<br>
+                Humidité: ${humidite}%<br>
+                Vitesse du vent: ${vent} m/s<br>
+                Conditions: ${description}
+            `;
 
-                    L.marker([lat, lon]).addTo(carte)
-                        .bindPopup(infoMeteo)
-                        .openPopup();
-                })
-                .fail(function() {
-                    L.marker([lat, lon]).addTo(carte)
-                        .bindPopup("Impossible de récupérer les données météo.")
-                        .openPopup();
-                });
-        }
+            L.marker([lat, lon]).addTo(carte)
+                .bindPopup(infoMeteo)
+                .openPopup();
+
+            // Envoi des données au serveur
+            $.post('getmeteo.php', {
+                latitude: lat,
+                longitude: lon,
+                temperature: temperature,
+                humidite: humidite,
+                vent: vent,
+                date: new Date().toISOString().slice(0, 19).replace('T', ' ')
+            }, function(response) {
+                console.log('Données enregistrées avec succès');
+            }).fail(function() {
+                console.error('Erreur lors de l\'enregistrement des données');
+            });
+        })
+        .fail(function() {
+            L.marker([lat, lon]).addTo(carte)
+                .bindPopup("Impossible de récupérer les données météo.")
+                .openPopup();
+        });
+}
+
 
         // Ajout d'un événement de clic sur la carte
         carte.on('click', function(e) {
