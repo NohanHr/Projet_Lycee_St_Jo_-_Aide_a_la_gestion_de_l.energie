@@ -436,7 +436,7 @@ void setup() {
 
 void loop() {
   // Tout fonctionne via les tâches FreeRTOS
-  vTaskDelay(1000 / portTICK_RATE_MS); // otherwise the main task wastes half of the cpu cycles
+  vTaskDelay(2000 / portTICK_RATE_MS); // otherwise the main task wastes half of the cpu cycles
 
 }
 
