@@ -42,7 +42,6 @@ if(isset($_POST['level']) && isset($_POST['id_m5']) ){
 
     echo $l;
     echo $i;
-//-----------// pour tester avec GET : http://10.5.25.5/add_son.php?level=1223.3&id_m5=101
     if ($pdo==null) bddConnect();
 
     try {
