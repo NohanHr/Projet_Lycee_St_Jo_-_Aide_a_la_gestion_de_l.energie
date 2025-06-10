@@ -127,6 +127,7 @@
                 temperature: temperature,
                 humidite: humidite,
                 vent: vent,
+                ville: ville, // Ajout du nom de la ville ici
                 date: new Date().toISOString().slice(0, 19).replace('T', ' ')
             }, function(response) {
                 console.log('Données enregistrées avec succès');
