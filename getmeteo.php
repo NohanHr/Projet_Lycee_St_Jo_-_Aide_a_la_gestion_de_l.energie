@@ -18,10 +18,11 @@ $temperature = $_POST['temperature'];
 $humidite = $_POST['humidite'];
 $vent = $_POST['vent'];
 $date = $_POST['date'];
+$ville = $_POST['ville']; // Récupération du nom de la ville
 
 // Requête SQL pour insérer les données dans la table
-$sql = "INSERT INTO meteo (latitude, longitude, temperature, humidite, vent, date)
-        VALUES ('$latitude', '$longitude', '$temperature', '$humidite', '$vent', '$date')";
+$sql = "INSERT INTO meteo (latitude, longitude, temperature, humidite, vent, date, ville)
+        VALUES ('$latitude', '$longitude', '$temperature', '$humidite', '$vent', '$date', '$ville')";
 
 if ($conn->query($sql) === TRUE) {
     echo "Nouvel enregistrement créé avec succès";
